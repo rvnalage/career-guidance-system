@@ -1,0 +1,35 @@
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
+
+from app.database.models import User
+from app.dependencies import get_current_user, get_database_session
+from app.schemas.user import UserProfile
+from app.services.user_service import to_user_profile, update_user_profile
+
+router = APIRouter()
+
+
+@router.get("/me", response_model=UserProfile)
+async def get_current_user_profile(
+	current_user: Annotated[User, Depends(get_current_user)],
+) -> UserProfile:
+	return to_user_profile(current_user)
+
+
+@router.put("/me", response_model=UserProfile)
+async def update_current_user(
+	payload: UserProfile,
+	current_user: Annotated[User, Depends(get_current_user)],
+	db: Annotated[Session, Depends(get_database_session)],
+) -> UserProfile:
+	try:
+		updated_user = update_user_profile(db, current_user, payload)
+	except SQLAlchemyError as exc:
+		raise HTTPException(
+			status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+			detail="Database unavailable. Please try again later.",
+		) from exc
+	return to_user_profile(updated_user)

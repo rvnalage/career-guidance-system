@@ -1,0 +1,89 @@
+# Core Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy==2.0.48; python_version >= "3.13"
+sqlalchemy==2.0.23; python_version < "3.13"
+psycopg2-binary==2.9.11
+pymongo==4.16.0; python_version >= "3.13"
+pymongo==4.6.0; python_version < "3.13"
+motor==3.7.1; python_version >= "3.13"
+motor==3.3.2; python_version < "3.13"
+
+# Authentication & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+pydantic==2.12.5; python_version >= "3.13"
+pydantic==2.5.0; python_version < "3.13"
+pydantic-settings==2.13.1; python_version >= "3.13"
+pydantic-settings==2.1.0; python_version < "3.13"
+
+# NLP & Embeddings
+transformers==4.57.6; python_version >= "3.13"
+transformers==4.35.2; python_version < "3.13"
+torch==2.1.1; python_version < "3.13"
+torch==2.10.0; python_version >= "3.13"
+sentence-transformers==5.2.3; python_version >= "3.13"
+sentence-transformers==2.2.2; python_version < "3.13"
+spacy==3.8.11; python_version >= "3.13"
+spacy==3.7.2; python_version < "3.13"
+nltk==3.8.1
+
+# Agentic AI
+langchain==0.1.0; python_version < "3.13"
+langchain-openai==0.0.5; python_version < "3.13"
+llama-index==0.9.31; python_version < "3.13"
+openai==1.3.6
+
+# ML & Recommendation
+xgboost==3.1.3; python_version >= "3.13"
+xgboost==2.0.3; python_version < "3.13"
+catboost==1.2.10; python_version >= "3.13"
+catboost==1.2.2; python_version < "3.13"
+lightgbm==4.6.0; python_version >= "3.13"
+lightgbm==4.0.0; python_version < "3.13"
+scikit-learn==1.7.2; python_version >= "3.13"
+scikit-learn==1.3.2; python_version < "3.13"
+numpy==2.2.5; python_version >= "3.13"
+numpy==1.26.2; python_version < "3.13"
+pandas==2.3.3; python_version >= "3.13"
+pandas==2.1.3; python_version < "3.13"
+
+# Explainability (XAI)
+shap==0.48.0; python_version >= "3.13"
+shap==0.43.0; python_version < "3.13"
+captum==0.7.0; python_version < "3.13"
+lime==0.2.0; python_version < "3.13"
+
+# Vector Databases
+pinecone-client==6.0.0; python_version >= "3.13"
+pinecone-client==3.0.0; python_version < "3.13"
+weaviate-client==4.20.3; python_version >= "3.13"
+weaviate-client==4.1.1; python_version < "3.13"
+faiss-cpu==1.7.4; platform_system != "Windows"
+
+# Utilities
+requests==2.31.0
+aiohttp==3.13.3; python_version >= "3.13"
+aiohttp==3.9.1; python_version < "3.13"
+python-dotenv==1.0.0
+pydantic-extra-types==2.1.0
+
+# Logging & Monitoring
+python-json-logger==2.0.7
+prometheus-client==0.19.0
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+httpx==0.28.1; python_version >= "3.13"
+httpx==0.25.2; python_version < "3.13"
+
+# Development
+black==23.12.0
+flake8==6.1.0
+mypy==1.7.1
+isort==5.13.2

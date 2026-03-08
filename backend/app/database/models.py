@@ -1,0 +1,15 @@
+from sqlalchemy import String
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.database.postgres_db import Base
+
+
+class User(Base):
+	__tablename__ = "users"
+
+	id: Mapped[str] = mapped_column(String(36), primary_key=True)
+	full_name: Mapped[str] = mapped_column(String(120), nullable=False)
+	email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
+	hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+	interests: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+	target_roles: Mapped[str] = mapped_column(String(500), default="", nullable=False)

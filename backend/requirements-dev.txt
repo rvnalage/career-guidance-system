@@ -1,0 +1,18 @@
+-r requirements.txt
+
+# Development Tools
+jupyter==1.0.0
+notebook==7.0.6
+ipython==8.18.1
+
+# Code Quality
+pylint==3.0.3
+bandit==1.7.5
+pre-commit==3.5.0
+
+# API Documentation
+mkdocs==1.5.3
+mkdocs-material==9.4.14
+
+# Debugging
+ipdb==0.13.13
