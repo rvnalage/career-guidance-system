@@ -24,5 +24,19 @@ async def rag_ingest_default() -> RagIngestResponse:
 
 
 @router.get("/search", response_model=RagSearchResponse)
-async def rag_search(query: str = Query(..., min_length=2)) -> RagSearchResponse:
-	return RagSearchResponse(query=query, results=get_rag_citations(query))
+async def rag_search(
+	query: str = Query(..., min_length=2),
+	source_type: str | None = Query(default=None),
+	topic: str | None = Query(default=None),
+	min_education: str | None = Query(default=None),
+) -> RagSearchResponse:
+	filters = {
+		key: value
+		for key, value in {
+			"source_type": source_type,
+			"topic": topic,
+			"min_education": min_education,
+		}.items()
+		if value
+	}
+	return RagSearchResponse(query=query, results=get_rag_citations(query, metadata_filters=filters or None))

@@ -10,6 +10,7 @@ class RagCitation(BaseModel):
 	source: str
 	source_type: str
 	snippet: str
+	metadata: dict[str, str] = Field(default_factory=dict)
 
 
 class RagSearchResponse(BaseModel):
@@ -20,11 +21,14 @@ class RagSearchResponse(BaseModel):
 class RagStatusResponse(BaseModel):
 	enabled: bool
 	top_k: int
+	candidate_pool_size: int
 	base_chunks: int
 	document_chunks: int
 	total_chunks: int
 	last_ingested_at: str | None = None
 	ingested_files: list[str] = Field(default_factory=list)
+	skipped_noisy_chunks: int = 0
+	skipped_duplicate_chunks: int = 0
 
 
 class RagIngestResponse(BaseModel):
@@ -32,3 +36,5 @@ class RagIngestResponse(BaseModel):
 	ingested_files: list[str] = Field(default_factory=list)
 	ingested_chunks: int
 	skipped_files: list[str] = Field(default_factory=list)
+	skipped_noisy_chunks: int = 0
+	skipped_duplicate_chunks: int = 0

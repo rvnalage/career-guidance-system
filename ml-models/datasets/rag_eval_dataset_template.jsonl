@@ -1,0 +1,3 @@
+{"query":"How do I prepare for a machine learning interview?","expected_topics":["interview","learning"],"expected_sources":["internal_guide/interview"],"expected_keywords":["interview","practice","project"]}
+{"query":"Suggest a roadmap for becoming a data analyst.","expected_topics":["learning","career_path"],"expected_sources":["app.utils.constants.CAREER_PATHS"],"expected_keywords":["roadmap","sql","python"]}
+{"query":"What roles fit a master student interested in AI?","expected_topics":["career_path"],"expected_sources":["app.utils.constants.CAREER_PATHS"],"expected_keywords":["machine learning","education","skills"]}

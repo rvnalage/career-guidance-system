@@ -1,3 +1,4 @@
+import json
 from functools import lru_cache
 from typing import Annotated, List
 
@@ -12,7 +13,12 @@ class Settings(BaseSettings):
 	app_version: str = "0.1.0"
 	environment: str = Field(default="development", alias="ENV")
 	api_v1_prefix: str = "/api/v1"
-	cors_origins: Annotated[List[str], NoDecode] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+	cors_origins: Annotated[List[str], NoDecode] = [
+		"http://localhost:3000",
+		"http://127.0.0.1:3000",
+		"http://localhost:5173",
+		"http://127.0.0.1:5173",
+	]
 
 	database_url: str = Field(default="postgresql://postgres:rahulpg@localhost:5432/postgres")
 	mongodb_url: str = Field(default="mongodb://localhost:27017")
@@ -25,13 +31,15 @@ class Settings(BaseSettings):
 
 	job_market_api_url: str = "https://remotive.com/api/remote-jobs"
 	rag_enabled: bool = Field(default=True, alias="RAG_ENABLED")
-	rag_top_k: int = Field(default=2, alias="RAG_TOP_K")
+	rag_top_k: int = Field(default=4, alias="RAG_TOP_K")
+	rag_candidate_pool_size: int = Field(default=20, alias="RAG_CANDIDATE_POOL_SIZE")
 	llm_enabled: bool = Field(default=False, alias="LLM_ENABLED")
 	llm_provider: str = Field(default="ollama", alias="LLM_PROVIDER")
 	llm_base_url: str = Field(default="http://localhost:11434", alias="LLM_BASE_URL")
 	llm_model: str = Field(default="llama3.1:8b", alias="LLM_MODEL")
 	llm_finetuned_model: str = Field(default="", alias="LLM_FINETUNED_MODEL")
 	llm_request_timeout_seconds: int = Field(default=15, alias="LLM_REQUEST_TIMEOUT_SECONDS")
+	llm_require_rag_context: bool = Field(default=True, alias="LLM_REQUIRE_RAG_CONTEXT")
 
 	jwt_secret_key: str = "change-me-in-production"
 	jwt_algorithm: str = "HS256"
@@ -43,7 +51,15 @@ class Settings(BaseSettings):
 		if isinstance(value, list):
 			return value
 		if isinstance(value, str):
-			return [origin.strip() for origin in value.split(",") if origin.strip()]
+			text = value.strip()
+			if text.startswith("["):
+				try:
+					parsed = json.loads(text)
+					if isinstance(parsed, list):
+						return [str(origin).strip() for origin in parsed if str(origin).strip()]
+				except json.JSONDecodeError:
+					pass
+			return [origin.strip() for origin in text.split(",") if origin.strip()]
 		return []
 
 

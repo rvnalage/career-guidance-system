@@ -22,6 +22,7 @@ def get_llm_runtime_status() -> dict[str, object]:
 	finetuned = settings.llm_finetuned_model.strip()
 	return {
 		"enabled": settings.llm_enabled,
+		"require_rag_context": settings.llm_require_rag_context,
 		"provider": settings.llm_provider,
 		"base_url": settings.llm_base_url,
 		"base_model": settings.llm_model,
@@ -35,9 +36,10 @@ def _build_prompt(message: str, intent: str, base_reply: str, next_step: str, ra
 	rag_section = rag_context.strip() or "No retrieved context."
 	return (
 		f"System: {SYSTEM_PROMPT}\n"
-		"Use the base guidance below as source-of-truth and improve only phrasing and clarity. "
-		"Do not invent tools, jobs, or guarantees.\n"
-		"Use retrieved context if relevant and avoid contradictions.\n"
+		"Use only the retrieved context and base guidance below as source-of-truth. "
+		"Never invent tools, jobs, certifications, universities, timelines, salaries, or guarantees.\n"
+		"If retrieved context is insufficient, preserve the base guidance without adding new claims.\n"
+		"Keep guidance actionable, concise, and safe.\n"
 		f"Detected intent: {intent}\n"
 		f"User message: {message}\n"
 		f"Retrieved context:\n{rag_section}\n"
@@ -58,6 +60,8 @@ def generate_llm_reply(
 	if not settings.llm_enabled:
 		return None
 	if settings.llm_provider.lower() != "ollama":
+		return None
+	if settings.llm_require_rag_context and not rag_context.strip():
 		return None
 
 	url = f"{settings.llm_base_url.rstrip('/')}/api/generate"

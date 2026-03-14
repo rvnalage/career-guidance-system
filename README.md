@@ -56,12 +56,14 @@ career-guidance-system/
 - `JOB_MARKET_API_URL`
 - `RAG_ENABLED` (default `true`)
 - `RAG_TOP_K` (retrieved chunk count)
+- `RAG_CANDIDATE_POOL_SIZE` (candidate count before reranking)
 - `LLM_ENABLED` (set `true` to enable local LLaMA responses)
 - `LLM_PROVIDER` (currently `ollama`)
 - `LLM_BASE_URL` (default `http://localhost:11434`)
 - `LLM_MODEL` (example `llama3.1:8b`)
 - `LLM_FINETUNED_MODEL` (optional, overrides base model when set)
 - `LLM_REQUEST_TIMEOUT_SECONDS`
+- `LLM_REQUIRE_RAG_CONTEXT` (if `true`, LLM enhancement runs only when RAG context exists)
 
 ### Frontend
 
@@ -176,6 +178,16 @@ Demo runbook: `docs/demo-runbook.md`
 Architecture coverage docs:
 - `docs/model-coverage.md`
 - `docs/phase2-implementation-checklist.md`
+
+RAG evaluation assets:
+- `ml-models/datasets/rag_eval_dataset_template.jsonl`
+- `ml-models/evaluation/evaluate_rag_scorecard.py`
+
+Run retrieval scorecard:
+
+```bash
+python ml-models/evaluation/evaluate_rag_scorecard.py --api-url http://localhost:8000/api/v1
+```
 
 LLaMA customization starter files:
 - `ml-models/training/llama_customization.md`
