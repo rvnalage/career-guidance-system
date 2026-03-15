@@ -1,3 +1,5 @@
+"""Relational ORM models used by the authentication and profile flows."""
+
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -5,6 +7,7 @@ from app.database.postgres_db import Base
 
 
 class User(Base):
+	"""Minimal user record storing identity, credentials, and seed profile fields."""
 	__tablename__ = "users"
 
 	id: Mapped[str] = mapped_column(String(36), primary_key=True)

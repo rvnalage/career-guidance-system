@@ -1,3 +1,5 @@
+"""Authentication routes for user registration and JWT issuance."""
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -18,6 +20,7 @@ async def register_user(
 	payload: UserRegisterRequest,
 	db: Annotated[Session, Depends(get_database_session)],
 ) -> MessageResponse:
+	"""Create a new user account after checking for duplicate email registration."""
 	try:
 		existing_user = get_user_by_email(db, payload.email)
 	except SQLAlchemyError as exc:
@@ -44,6 +47,7 @@ async def login_user(
 	payload: UserLoginRequest,
 	db: Annotated[Session, Depends(get_database_session)],
 ) -> TokenResponse:
+	"""Authenticate a user and return a bearer token for protected endpoints."""
 	try:
 		user = authenticate_user(db, payload.email, payload.password)
 	except SQLAlchemyError as exc:

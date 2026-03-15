@@ -1,3 +1,5 @@
+"""SQLAlchemy engine, session, and initialization helpers for relational storage."""
+
 from collections.abc import Generator
 
 from sqlalchemy import create_engine
@@ -7,6 +9,7 @@ from app.config import settings
 
 
 class Base(DeclarativeBase):
+	"""Declarative base shared by all relational ORM models."""
 	pass
 
 
@@ -15,6 +18,7 @@ SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False, clas
 
 
 def get_db() -> Generator[Session, None, None]:
+	"""Yield a database session and ensure it is closed after request handling."""
 	db = SessionLocal()
 	try:
 		yield db
@@ -23,6 +27,7 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def init_db() -> None:
+	"""Create configured relational tables after importing model metadata."""
 	# Import models so SQLAlchemy can register metadata before table creation.
 	from app.database import models  # noqa: F401
 

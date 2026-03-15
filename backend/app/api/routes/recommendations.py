@@ -1,3 +1,5 @@
+"""Recommendation API routes for generation, explanation, feedback, and history."""
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -23,11 +25,13 @@ from app.services.recommendation_service import (
 	save_recommendation_feedback,
 	save_recommendation_snapshot,
 )
+from app.xai.explainer import get_explainer_runtime_status
 
 router = APIRouter()
 
 
 async def _enrich_interests_with_psychometric(user_id: str, interests: list[str]) -> list[str]:
+	"""Merge stored psychometric domains into request interests without duplicating entries."""
 	profile = await get_user_psychometric_profile(user_id)
 	if not profile:
 		return interests
@@ -48,6 +52,7 @@ async def generate_recommendations(
 	payload: RecommendationRequest,
 	current_user: Annotated[User, Depends(get_current_user)],
 ) -> RecommendationResponse:
+	"""Generate personalized career recommendations for the authenticated user."""
 	enriched_interests = await _enrich_interests_with_psychometric(current_user.id, payload.interests)
 	payload = RecommendationRequest(
 		user_id=current_user.id,
@@ -66,6 +71,7 @@ async def explain_recommendations_me(
 	payload: RecommendationExplainRequest,
 	current_user: Annotated[User, Depends(get_current_user)],
 ) -> RecommendationExplainResponse:
+	"""Return recommendation explanations with feature-level XAI contributions."""
 	enriched_interests = await _enrich_interests_with_psychometric(current_user.id, payload.interests)
 	payload = RecommendationExplainRequest(
 		interests=enriched_interests,
@@ -82,14 +88,26 @@ async def recommendation_feedback_me(
 	payload: RecommendationFeedbackRequest,
 	current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, object]:
+	"""Store structured user feedback to support future recommendation personalization."""
 	await save_recommendation_feedback(current_user.id, payload)
 	return {"user_id": current_user.id, "message": "Feedback recorded"}
+
+
+@router.get("/xai/status")
+async def recommendation_xai_status(
+	current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object]:
+	"""Expose the current runtime explainer mode for diagnostics and demos."""
+	status = get_explainer_runtime_status()
+	status["user_id"] = current_user.id
+	return status
 
 
 @router.get("/history/me", response_model=RecommendationHistoryResponse)
 async def recommendation_history_me(
 	current_user: Annotated[User, Depends(get_current_user)],
 ) -> RecommendationHistoryResponse:
+	"""Return the authenticated user's stored recommendation history."""
 	history = await get_recommendation_history(current_user.id)
 	items = [RecommendationHistoryItem.model_validate(item) for item in history]
 	return RecommendationHistoryResponse(history=items)
@@ -99,6 +117,7 @@ async def recommendation_history_me(
 async def clear_recommendation_history_me(
 	current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, object]:
+	"""Clear recommendation history for the authenticated user."""
 	deleted_count = await clear_recommendation_history(current_user.id)
 	return {
 		"user_id": current_user.id,

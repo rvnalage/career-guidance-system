@@ -1,3 +1,5 @@
+"""User profile routes for reading and updating authenticated account details."""
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -16,6 +18,7 @@ router = APIRouter()
 async def get_current_user_profile(
 	current_user: Annotated[User, Depends(get_current_user)],
 ) -> UserProfile:
+	"""Return the current authenticated user's profile in API schema form."""
 	return to_user_profile(current_user)
 
 
@@ -25,6 +28,7 @@ async def update_current_user(
 	current_user: Annotated[User, Depends(get_current_user)],
 	db: Annotated[Session, Depends(get_database_session)],
 ) -> UserProfile:
+	"""Update the current user's persisted profile fields in the relational store."""
 	try:
 		updated_user = update_user_profile(db, current_user, payload)
 	except SQLAlchemyError as exc:

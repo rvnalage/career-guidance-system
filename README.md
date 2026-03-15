@@ -10,7 +10,7 @@ Agentic AI-driven career guidance platform with secure user accounts, personaliz
 - Career recommendation engine (skills + interests + education scoring)
 - Feedback-learning personalization (Helpful/Not Helpful + rating/tags)
 - Psychometric scoring with persisted user profile (`/psychometric/score/me`, `/psychometric/profile/me`)
-- Recommendation explainability panel (SHAP/LIME-style feature contributions)
+- Recommendation explainability panel (SHAP/LIME with safe fallback)
 - Real-time job market API integration with resilient fallback
 - Recommendation history with clear-history support
 - Dashboard summary + backend-generated report export
@@ -125,6 +125,7 @@ Base prefix: `/api/v1`
   - `POST /recommendations/generate`
   - `POST /recommendations/explain/me`
   - `POST /recommendations/feedback/me`
+  - `GET /recommendations/xai/status`
   - `GET /recommendations/history/me`
   - `DELETE /recommendations/history/me`
 - Psychometric
@@ -172,6 +173,23 @@ Full focused suite used during implementation:
 ```bash
 python -m pytest -q tests/test_auth.py tests/test_integration.py tests/test_ml.py tests/test_agents.py tests/test_chat.py tests/test_rag.py
 ```
+
+## XAI Runtime Matrix
+
+- Python `3.12` (recommended): SHAP + LIME available in most setups.
+- Python `3.13`: SHAP is supported in this project; LIME may be unavailable depending on dependency constraints.
+- Fallback mode: if SHAP/LIME cannot load, the backend still returns deterministic weighted contributions.
+
+Check runtime mode:
+
+```bash
+GET /api/v1/recommendations/xai/status
+```
+
+Example response fields:
+- `active_mode`: `shap` | `lime` | `fallback`
+- `shap_available`: `true/false`
+- `lime_available`: `true/false`
 
 Demo runbook: `docs/demo-runbook.md`
 

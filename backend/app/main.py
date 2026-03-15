@@ -1,3 +1,5 @@
+"""FastAPI application factory and top-level ASGI app instance."""
+
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -9,8 +11,10 @@ from app.database.postgres_db import init_db
 
 
 def create_app() -> FastAPI:
+	"""Create and configure the FastAPI application with middleware, routes, and startup hooks."""
 	@asynccontextmanager
 	async def lifespan(_: FastAPI):
+		"""Initialize relational tables on startup without failing local development if DB is absent."""
 		try:
 			init_db()
 		except Exception:

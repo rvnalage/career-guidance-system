@@ -1,3 +1,5 @@
+"""Dashboard API routes for summary and report views over user activity."""
+
 from datetime import datetime, timezone
 from typing import Annotated
 
@@ -12,6 +14,7 @@ router = APIRouter()
 
 
 async def _build_summary_for_user(user_id: str) -> tuple[dict[str, object], list[dict], list[dict]]:
+	"""Assemble dashboard summary data from chat and recommendation histories."""
 	history = await get_user_history(user_id, limit=100)
 	recommendation_history = await get_recommendation_history(user_id, limit=10)
 	top_roles: list[str] = []
@@ -32,6 +35,7 @@ async def _build_summary_for_user(user_id: str) -> tuple[dict[str, object], list
 async def get_dashboard_summary(
 	current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, object]:
+	"""Return the lightweight dashboard summary for the authenticated user."""
 	summary, _, _ = await _build_summary_for_user(current_user.id)
 	return summary
 
@@ -40,6 +44,7 @@ async def get_dashboard_summary(
 async def get_dashboard_report(
 	current_user: Annotated[User, Depends(get_current_user)],
 ) -> dict[str, object]:
+	"""Return a detailed dashboard report including recent chat and recommendation history."""
 	summary, history, recommendation_history = await _build_summary_for_user(current_user.id)
 	recent_chat = history[-10:]
 	return {

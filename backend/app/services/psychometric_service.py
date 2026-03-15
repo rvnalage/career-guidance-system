@@ -1,3 +1,9 @@
+"""Psychometric scoring and persistence helpers for domain recommendations.
+
+The service maps normalized trait scores to a small set of career domains and
+supports both durable storage in MongoDB and a lightweight in-memory fallback.
+"""
+
 from app.schemas.psychometric import PsychometricRequest
 from app.database.mongo_db import get_psychometric_collection
 
@@ -13,6 +19,7 @@ _DOMAIN_MAP = {
 
 
 def score_psychometric(payload: PsychometricRequest) -> tuple[dict[str, float], list[str], list[str]]:
+	"""Normalize trait inputs, rank top traits, and map them to recommended domains."""
 	normalized_scores: dict[str, float] = {}
 	for key, value in payload.dimensions.items():
 		bounded = max(1, min(5, int(value)))
@@ -37,6 +44,7 @@ _psychometric_fallback: dict[str, dict] = {}
 
 
 async def save_user_psychometric_profile(user_id: str, payload: PsychometricRequest) -> dict:
+	"""Persist a user's psychometric result for later recommendation enrichment."""
 	normalized_scores, top_traits, recommended_domains = score_psychometric(payload)
 	document = {
 		"user_id": user_id,
@@ -53,6 +61,7 @@ async def save_user_psychometric_profile(user_id: str, payload: PsychometricRequ
 
 
 async def get_user_psychometric_profile(user_id: str) -> dict | None:
+	"""Load a stored psychometric profile from MongoDB or the fallback cache."""
 	try:
 		collection = get_psychometric_collection()
 		document = await collection.find_one({"user_id": user_id})

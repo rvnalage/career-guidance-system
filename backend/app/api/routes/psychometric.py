@@ -1,3 +1,5 @@
+"""Psychometric API routes for scoring and storing trait-based domain recommendations."""
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -16,6 +18,7 @@ router = APIRouter()
 
 @router.post("/score", response_model=PsychometricResponse)
 async def score_psychometric_test(payload: PsychometricRequest) -> PsychometricResponse:
+	"""Score psychometric dimensions without requiring authentication or persistence."""
 	normalized_scores, top_traits, recommended_domains = score_psychometric(payload)
 	return PsychometricResponse(
 		normalized_scores=normalized_scores,
@@ -29,6 +32,7 @@ async def score_psychometric_test_me(
 	payload: PsychometricRequest,
 	current_user: Annotated[User, Depends(get_current_user)],
 ) -> PsychometricResponse:
+	"""Score and persist psychometric results for the authenticated user."""
 	document = await save_user_psychometric_profile(current_user.id, payload)
 	return PsychometricResponse(
 		normalized_scores=document.get("normalized_scores", {}),
@@ -41,6 +45,7 @@ async def score_psychometric_test_me(
 async def psychometric_profile_me(
 	current_user: Annotated[User, Depends(get_current_user)],
 ) -> PsychometricResponse:
+	"""Return the authenticated user's saved psychometric profile if available."""
 	document = await get_user_psychometric_profile(current_user.id)
 	if not document:
 		return PsychometricResponse(normalized_scores={}, top_traits=[], recommended_domains=[])

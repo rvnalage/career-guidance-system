@@ -1,3 +1,5 @@
+"""Retriever that combines vector search, lexical overlap, and metadata-aware reranking."""
+
 from __future__ import annotations
 
 import re
@@ -7,10 +9,12 @@ from app.rag.vector_store import InMemoryVectorStore
 
 
 def _tokenize(value: str) -> set[str]:
+	"""Tokenize free text into lowercase alphanumeric terms for overlap scoring."""
 	return set(re.findall(r"[a-z0-9]+", value.lower()))
 
 
 def _metadata_score(query_tokens: set[str], chunk: KnowledgeChunk) -> float:
+	"""Compute a lightweight bonus when query tokens overlap with chunk metadata values."""
 	if not chunk.metadata:
 		return 0.0
 	text = " ".join(chunk.metadata.values())
@@ -22,6 +26,7 @@ def _metadata_score(query_tokens: set[str], chunk: KnowledgeChunk) -> float:
 
 
 class Retriever:
+	"""Thin retrieval orchestrator over the in-memory vector store."""
 	def __init__(self, store: InMemoryVectorStore) -> None:
 		self.store = store
 
@@ -33,6 +38,7 @@ class Retriever:
 		metadata_filters: dict[str, str] | None = None,
 		candidate_pool_size: int = 20,
 	) -> list[KnowledgeChunk]:
+		"""Return the best matching chunks using vector retrieval plus deterministic reranking."""
 		query_tokens = _tokenize(query)
 		if not query_tokens:
 			return []
@@ -69,6 +75,7 @@ class Retriever:
 
 
 def _passes_metadata_filters(chunk: KnowledgeChunk, metadata_filters: dict[str, str]) -> bool:
+	"""Check whether a chunk satisfies exact-match metadata filters."""
 	if not metadata_filters:
 		return True
 	for key, expected_value in metadata_filters.items():

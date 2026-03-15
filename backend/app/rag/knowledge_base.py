@@ -1,3 +1,5 @@
+"""Knowledge-base construction and document chunk ingestion helpers for RAG."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -10,6 +12,7 @@ from app.utils.constants import CAREER_PATHS
 
 @dataclass(frozen=True)
 class KnowledgeChunk:
+	"""Single retrievable knowledge unit with source and metadata for reranking and citation."""
 	title: str
 	text: str
 	source: str
@@ -49,6 +52,7 @@ EXTRA_KNOWLEDGE: list[KnowledgeChunk] = [
 
 
 def build_base_corpus() -> list[KnowledgeChunk]:
+	"""Build the built-in knowledge corpus from static career definitions and curated extras."""
 	corpus: list[KnowledgeChunk] = []
 	for path in CAREER_PATHS:
 		text = (
@@ -74,6 +78,7 @@ def build_base_corpus() -> list[KnowledgeChunk]:
 
 
 def default_one_note_extract_path() -> Path:
+	"""Resolve the default directory containing external text documents for ingestion."""
 	backend_root = Path(__file__).resolve().parents[2]
 	candidates = [
 		backend_root.parent / "one_note_extract",
@@ -86,6 +91,7 @@ def default_one_note_extract_path() -> Path:
 
 
 def chunk_text(text: str, chunk_size: int = 700, overlap: int = 120) -> list[str]:
+	"""Split long text into overlapping chunks suitable for simple local retrieval."""
 	clean = " ".join(text.split())
 	if not clean:
 		return []
@@ -107,6 +113,7 @@ def chunk_text(text: str, chunk_size: int = 700, overlap: int = 120) -> list[str
 
 
 def load_document_chunks(directory_path: str | None = None) -> dict[str, Any]:
+	"""Load text files from disk, filter noisy chunks, and return ingest-ready knowledge chunks."""
 	target_path = Path(directory_path).expanduser() if directory_path else default_one_note_extract_path()
 	if not target_path.exists() or not target_path.is_dir():
 		return {
@@ -179,6 +186,7 @@ def load_document_chunks(directory_path: str | None = None) -> dict[str, Any]:
 
 
 def _alnum_ratio(text: str) -> float:
+	"""Estimate text cleanliness by measuring the share of alphanumeric or space characters."""
 	if not text:
 		return 0.0
 	alnum_count = sum(char.isalnum() or char.isspace() for char in text)
@@ -186,6 +194,7 @@ def _alnum_ratio(text: str) -> float:
 
 
 def _fingerprint(text: str) -> str:
+	"""Generate a compact normalized token fingerprint for duplicate-chunk detection."""
 	# Compact near-duplicate detector using first N normalized tokens.
 	tokens = re.findall(r"[a-z0-9]+", text)
 	return " ".join(tokens[:80])

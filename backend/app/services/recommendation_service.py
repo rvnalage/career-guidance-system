@@ -1,3 +1,10 @@
+"""Recommendation scoring, explanation, feedback, and history persistence helpers.
+
+This module implements a deterministic recommendation engine that combines skills,
+interests, education fit, and feedback-derived personalization, then exposes both
+plain recommendations and XAI-friendly contribution outputs.
+"""
+
 from datetime import datetime, timezone
 
 from app.schemas.recommendation import (
@@ -10,22 +17,26 @@ from app.schemas.recommendation import (
 )
 from app.database.mongo_db import get_feedback_collection, get_recommendation_collection
 from app.utils.constants import CAREER_PATHS, EDUCATION_ORDER
+from app.xai.explainer import explain_recommendation
 
 _recommendation_fallback: dict[str, list[dict]] = {}
 _feedback_fallback: dict[str, list[dict]] = {}
 
 
 def _normalize(items: list[str]) -> set[str]:
+	"""Return lowercase non-empty values for set-based matching operations."""
 	return {item.strip().lower() for item in items if item and item.strip()}
 
 
 def _safe_ratio(matches: int, total: int) -> float:
+	"""Avoid division errors when a role definition has an empty feature list."""
 	if total <= 0:
 		return 0.0
 	return matches / total
 
 
 def _education_score(user_education: str, required_education: str) -> float:
+	"""Convert education alignment into a bounded compatibility score."""
 	user_rank = EDUCATION_ORDER.get(user_education.strip().lower(), 0)
 	required_rank = EDUCATION_ORDER.get(required_education.strip().lower(), 0)
 	if user_rank == 0 or required_rank == 0:
@@ -38,6 +49,7 @@ def _education_score(user_education: str, required_education: str) -> float:
 
 
 def _reason_text(skill_matches: int, interest_matches: int, required_skills: int) -> str:
+	"""Generate a short human-readable explanation for a recommendation result."""
 	return (
 		f"Matched {skill_matches}/{required_skills} core skills and "
 		f"{interest_matches} related interests."
@@ -45,10 +57,12 @@ def _reason_text(skill_matches: int, interest_matches: int, required_skills: int
 
 
 def _bounded(value: float, low: float, high: float) -> float:
+	"""Clamp a numeric value into the requested closed interval."""
 	return max(low, min(high, value))
 
 
 def _default_personalization_profile() -> dict[str, dict]:
+	"""Return neutral personalization weights and no role bonuses."""
 	return {
 		"role_bonus": {},
 		"weights": {
@@ -60,6 +74,7 @@ def _default_personalization_profile() -> dict[str, dict]:
 
 
 def _compute_personalization_profile(feedback_items: list[dict]) -> dict[str, dict]:
+	"""Translate recommendation feedback into per-role bonuses and feature weight shifts."""
 	profile = _default_personalization_profile()
 	role_bonus = profile["role_bonus"]
 	weights = profile["weights"]
@@ -96,6 +111,7 @@ def _compute_personalization_profile(feedback_items: list[dict]) -> dict[str, di
 
 
 async def get_personalization_profile(user_id: str) -> dict[str, dict]:
+	"""Load a user's derived personalization profile from feedback history."""
 	try:
 		collection = get_feedback_collection()
 		cursor = collection.find({"user_id": user_id}).sort("created_at", 1)
@@ -114,6 +130,7 @@ def _score_paths(
 	payload: RecommendationRequest,
 	personalization_profile: dict[str, dict] | None = None,
 ) -> list[tuple[float, CareerRecommendation, list[FeatureContribution]]]:
+	"""Score all supported career paths and return ranked recommendations with raw contributions."""
 	user_skills = _normalize(payload.skills)
 	user_interests = _normalize(payload.interests)
 	profile = personalization_profile or _default_personalization_profile()
@@ -166,6 +183,7 @@ def generate_career_recommendations(
 	top_k: int = 3,
 	personalization_profile: dict[str, dict] | None = None,
 ) -> list[CareerRecommendation]:
+	"""Return the top-k ranked career recommendations for a user profile."""
 	weighted_recommendations = _score_paths(payload, personalization_profile=personalization_profile)
 	return [item[1] for item in weighted_recommendations[:top_k]]
 
@@ -175,6 +193,7 @@ def generate_recommendation_explanations(
 	personalization_profile: dict[str, dict] | None = None,
 	top_k: int = 3,
 ) -> list[RecommendationExplanation]:
+	"""Return top-k recommendations together with explainer-specific feature contributions."""
 	request_payload = RecommendationRequest(
 		user_id="",
 		interests=payload.interests,
@@ -182,20 +201,29 @@ def generate_recommendation_explanations(
 		education_level=payload.education_level,
 	)
 	weighted_recommendations = _score_paths(request_payload, personalization_profile=personalization_profile)
+	profile = personalization_profile or _default_personalization_profile()
+	weights = profile.get("weights", _default_personalization_profile()["weights"])
 	explanations: list[RecommendationExplanation] = []
 	for _, recommendation, contributions in weighted_recommendations[:top_k]:
+		feature_map = {item.feature: item.value for item in contributions}
+		explained_contributions, label = explain_recommendation(feature_map, weights)
+		xai_contributions = [
+			FeatureContribution(feature=feature, value=value)
+			for feature, value in explained_contributions
+		]
 		explanations.append(
 			RecommendationExplanation(
 				role=recommendation.role,
 				confidence=recommendation.confidence,
-				contributions=contributions,
-				label="SHAP/LIME-style contribution summary",
+				contributions=xai_contributions,
+				label=label,
 			)
 		)
 	return explanations
 
 
 async def save_recommendation_snapshot(user_id: str, recommendations: list[CareerRecommendation]) -> dict:
+	"""Persist a generated recommendation set so dashboard and history endpoints can replay it."""
 	document = {
 		"user_id": user_id,
 		"recommendations": [item.model_dump() for item in recommendations],
@@ -210,6 +238,7 @@ async def save_recommendation_snapshot(user_id: str, recommendations: list[Caree
 
 
 async def get_recommendation_history(user_id: str, limit: int = 10) -> list[dict]:
+	"""Return recent recommendation snapshots in newest-first order."""
 	try:
 		collection = get_recommendation_collection()
 		cursor = collection.find({"user_id": user_id}).sort("generated_at", -1).limit(limit)
@@ -222,6 +251,7 @@ async def get_recommendation_history(user_id: str, limit: int = 10) -> list[dict
 
 
 async def clear_recommendation_history(user_id: str) -> int:
+	"""Delete stored recommendation history and return the number of removed items."""
 	deleted_count = 0
 	try:
 		collection = get_recommendation_collection()
@@ -235,6 +265,7 @@ async def clear_recommendation_history(user_id: str) -> int:
 
 
 async def save_recommendation_feedback(user_id: str, payload: RecommendationFeedbackRequest) -> dict:
+	"""Store user feedback used later to personalize recommendation scoring weights."""
 	document = {
 		"user_id": user_id,
 		"role": payload.role,

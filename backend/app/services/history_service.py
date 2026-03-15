@@ -1,3 +1,5 @@
+"""Chat history persistence helpers backed by MongoDB with an in-memory fallback."""
+
 from datetime import datetime, timezone
 from typing import Any
 
@@ -7,6 +9,7 @@ _history_fallback: dict[str, list[dict[str, Any]]] = {}
 
 
 async def append_message(user_id: str, role: str, text: str) -> None:
+	"""Append a chat turn to persistent history or the fallback cache."""
 	document = {
 		"user_id": user_id,
 		"role": role,
@@ -21,6 +24,7 @@ async def append_message(user_id: str, role: str, text: str) -> None:
 
 
 async def get_user_history(user_id: str, limit: int = 50) -> list[dict[str, Any]]:
+	"""Return recent chat history in chronological order for a specific user."""
 	try:
 		collection = get_history_collection()
 		cursor = collection.find({"user_id": user_id}).sort("timestamp", -1).limit(limit)
@@ -33,6 +37,7 @@ async def get_user_history(user_id: str, limit: int = 50) -> list[dict[str, Any]
 
 
 async def clear_user_history(user_id: str) -> int:
+	"""Delete stored chat history for a user and return the number of removed messages."""
 	deleted_count = 0
 	try:
 		collection = get_history_collection()

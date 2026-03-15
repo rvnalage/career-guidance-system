@@ -1,3 +1,5 @@
+"""Query normalization helpers that expand shorthand terms before retrieval."""
+
 from __future__ import annotations
 
 import re

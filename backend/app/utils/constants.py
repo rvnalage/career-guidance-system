@@ -1,7 +1,10 @@
+"""Static typed constants used by recommendation and knowledge-base modules."""
+
 from typing import TypedDict
 
 
 class CareerPath(TypedDict):
+	"""Shape of a supported career definition used by the recommendation engine."""
 	role: str
 	required_skills: list[str]
 	related_interests: list[str]

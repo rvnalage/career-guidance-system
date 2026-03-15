@@ -57,6 +57,11 @@ def test_recommendation_explain_me_requires_auth(client):
 	assert response.status_code == 401
 
 
+def test_recommendation_xai_status_requires_auth(client):
+	response = client.get("/api/v1/recommendations/xai/status")
+	assert response.status_code == 401
+
+
 def test_clear_recommendation_history_me_requires_auth(client):
 	response = client.delete("/api/v1/recommendations/history/me")
 	assert response.status_code == 401
@@ -230,6 +235,13 @@ def test_recommendation_explain_and_feedback_with_auth(client):
 		)
 		assert feedback_response.status_code == 200
 		assert feedback_response.json()["message"] == "Feedback recorded"
+
+		xai_status_response = client.get("/api/v1/recommendations/xai/status")
+		assert xai_status_response.status_code == 200
+		xai_body = xai_status_response.json()
+		assert xai_body["active_mode"] in {"shap", "lime", "fallback"}
+		assert "shap_available" in xai_body
+		assert "lime_available" in xai_body
 	finally:
 		client.app.dependency_overrides.clear()
 

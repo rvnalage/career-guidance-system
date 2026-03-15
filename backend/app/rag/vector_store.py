@@ -1,3 +1,5 @@
+"""Lightweight in-memory TF-IDF vector store used by the local RAG pipeline."""
+
 from __future__ import annotations
 
 from typing import Sequence
@@ -14,6 +16,7 @@ class InMemoryVectorStore:
 		self._matrix = None
 
 	def set_chunks(self, chunks: Sequence[KnowledgeChunk]) -> None:
+		"""Rebuild the TF-IDF index from the supplied chunks."""
 		self._chunks = list(chunks)
 		if not self._chunks:
 			self._vectorizer = None
@@ -28,6 +31,7 @@ class InMemoryVectorStore:
 		self._matrix = self._vectorizer.fit_transform(corpus)
 
 	def search(self, query: str, top_k: int) -> list[tuple[float, KnowledgeChunk]]:
+		"""Return top-k positively scored chunks for a query using cosine similarity."""
 		if not query.strip() or not self._chunks:
 			return []
 

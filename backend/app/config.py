@@ -1,3 +1,5 @@
+"""Central application settings loaded from environment variables and .env files."""
+
 import json
 from functools import lru_cache
 from typing import Annotated, List
@@ -7,6 +9,7 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+	"""Typed runtime configuration for API, storage, retrieval, and authentication behavior."""
 	model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 	app_name: str = "Career Guidance System API"
@@ -28,6 +31,7 @@ class Settings(BaseSettings):
 	mongodb_recommendation_collection: str = "recommendation_history"
 	mongodb_feedback_collection: str = "recommendation_feedback"
 	mongodb_psychometric_collection: str = "psychometric_profiles"
+	mongodb_user_profile_collection: str = "user_profiles"
 
 	job_market_api_url: str = "https://remotive.com/api/remote-jobs"
 	rag_enabled: bool = Field(default=True, alias="RAG_ENABLED")
@@ -40,6 +44,7 @@ class Settings(BaseSettings):
 	llm_finetuned_model: str = Field(default="", alias="LLM_FINETUNED_MODEL")
 	llm_request_timeout_seconds: int = Field(default=15, alias="LLM_REQUEST_TIMEOUT_SECONDS")
 	llm_require_rag_context: bool = Field(default=True, alias="LLM_REQUIRE_RAG_CONTEXT")
+	intent_min_confidence: float = Field(default=0.35, alias="INTENT_MIN_CONFIDENCE")
 
 	jwt_secret_key: str = "change-me-in-production"
 	jwt_algorithm: str = "HS256"
@@ -48,6 +53,7 @@ class Settings(BaseSettings):
 	@field_validator("cors_origins", mode="before")
 	@classmethod
 	def parse_cors_origins(cls, value: str | List[str]) -> List[str]:
+		"""Accept CORS origins from either JSON list syntax or comma-separated text."""
 		if isinstance(value, list):
 			return value
 		if isinstance(value, str):
@@ -65,6 +71,7 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
+	"""Return a cached Settings instance so configuration is parsed only once per process."""
 	return Settings()
 
 

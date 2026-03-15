@@ -1,3 +1,5 @@
+"""High-level RAG orchestration for ingestion, retrieval, and citation formatting."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -26,6 +28,7 @@ VECTOR_STORE.set_chunks(BASE_CORPUS)
 
 
 def ingest_directory(directory_path: str | None = None) -> dict[str, Any]:
+	"""Ingest document chunks from disk and refresh the active in-memory vector index."""
 	result = load_document_chunks(directory_path)
 	DOC_CORPUS.clear()
 	DOC_CORPUS.extend(result["ingested_chunks"])
@@ -47,6 +50,7 @@ def ingest_directory(directory_path: str | None = None) -> dict[str, Any]:
 
 
 def get_rag_status() -> dict[str, Any]:
+	"""Return current RAG configuration and latest ingestion metadata."""
 	return {
 		"enabled": settings.rag_enabled,
 		"top_k": settings.rag_top_k,
@@ -62,6 +66,7 @@ def get_rag_status() -> dict[str, Any]:
 
 
 def _active_corpus() -> list[KnowledgeChunk]:
+	"""Return the combined built-in and dynamically ingested corpus."""
 	return BASE_CORPUS + DOC_CORPUS
 
 
@@ -70,6 +75,7 @@ def retrieve_relevant_chunks(
 	top_k: int | None = None,
 	metadata_filters: dict[str, str] | None = None,
 ) -> list[KnowledgeChunk]:
+	"""Retrieve top chunks for a query using rewriting, reranking, and optional metadata filters."""
 	if not settings.rag_enabled:
 		return []
 	rewritten_query = rewrite_query(query)
@@ -95,6 +101,7 @@ def retrieve_relevant_chunks(
 
 
 def build_rag_context(query: str, metadata_filters: dict[str, str] | None = None) -> str:
+	"""Render retrieved chunks into a compact bullet-list context string for prompting."""
 	chunks = retrieve_relevant_chunks(query, metadata_filters=metadata_filters)
 	if not chunks:
 		return ""
@@ -106,6 +113,7 @@ def get_rag_citations(
 	query: str,
 	metadata_filters: dict[str, str] | None = None,
 ) -> list[dict[str, Any]]:
+	"""Convert retrieved chunks into API-friendly citation dictionaries."""
 	chunks = retrieve_relevant_chunks(query, metadata_filters=metadata_filters)
 	citations: list[dict[str, Any]] = []
 	for chunk in chunks:
@@ -122,6 +130,7 @@ def get_rag_citations(
 
 
 def infer_metadata_filters(query: str) -> dict[str, str]:
+	"""Infer coarse metadata filters from query wording to improve retrieval precision."""
 	text = query.lower()
 	filters: dict[str, str] = {}
 

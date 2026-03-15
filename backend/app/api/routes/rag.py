@@ -1,3 +1,5 @@
+"""RAG administration and retrieval routes for the knowledge-base pipeline."""
+
 from fastapi import APIRouter, Query
 
 from app.schemas.rag import RagIngestRequest, RagIngestResponse, RagSearchResponse, RagStatusResponse
@@ -8,17 +10,20 @@ router = APIRouter()
 
 @router.get("/status", response_model=RagStatusResponse)
 async def rag_status() -> RagStatusResponse:
+	"""Return current retrieval configuration and ingestion statistics."""
 	return RagStatusResponse(**get_rag_status())
 
 
 @router.post("/ingest", response_model=RagIngestResponse)
 async def rag_ingest(payload: RagIngestRequest) -> RagIngestResponse:
+	"""Ingest a caller-specified directory into the in-memory knowledge base."""
 	result = ingest_directory(payload.directory_path)
 	return RagIngestResponse(**result)
 
 
 @router.post("/ingest/default", response_model=RagIngestResponse)
 async def rag_ingest_default() -> RagIngestResponse:
+	"""Ingest the default project document directory into the RAG pipeline."""
 	result = ingest_directory(None)
 	return RagIngestResponse(**result)
 
@@ -30,6 +35,7 @@ async def rag_search(
 	topic: str | None = Query(default=None),
 	min_education: str | None = Query(default=None),
 ) -> RagSearchResponse:
+	"""Search retrieved citations using optional metadata filters on top of the query text."""
 	filters = {
 		key: value
 		for key, value in {
