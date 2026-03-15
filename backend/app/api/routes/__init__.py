@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.routes import auth, chat, dashboard, history, llm, market, psychometric, rag, recommendations, users
+from app.api.routes import auth, chat, dashboard, history, llm, market, profile_intake, psychometric, rag, recommendations, users
 
 api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["auth"])
@@ -13,3 +13,4 @@ api_router.include_router(market.router, prefix="/market", tags=["market"])
 api_router.include_router(psychometric.router, prefix="/psychometric", tags=["psychometric"])
 api_router.include_router(rag.router, prefix="/rag", tags=["rag"])
 api_router.include_router(llm.router, prefix="/llm", tags=["llm"])
+api_router.include_router(profile_intake.router, prefix="/profile-intake", tags=["profile-intake"])

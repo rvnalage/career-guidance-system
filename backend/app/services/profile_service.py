@@ -176,3 +176,29 @@ def summarize_profile(profile: dict[str, Any] | None) -> str:
 	if profile.get("last_intent"):
 		parts.append(f"last_intent={profile['last_intent']}")
 	return "; ".join(parts) if parts else "No profile memory available."
+
+
+async def apply_profile_patch(user_id: str, patch: dict[str, Any]) -> dict[str, Any]:
+	"""Merge structured profile fields into persisted user profile memory."""
+	existing = await get_user_profile(user_id)
+	merged_skills = _normalized_set([*existing.get("skills", []), *patch.get("skills", [])])
+	merged_interests = _normalized_set([*existing.get("interests", []), *patch.get("interests", [])])
+
+	document = {
+		"user_id": user_id,
+		"skills": merged_skills,
+		"interests": merged_interests,
+		"target_role": patch.get("target_role") or existing.get("target_role"),
+		"target_companies": existing.get("target_companies", []),
+		"intent_counts": existing.get("intent_counts", {}),
+		"last_intent": existing.get("last_intent"),
+		"last_intent_confidence": existing.get("last_intent_confidence", 0.0),
+		"education_level": patch.get("education_level") or existing.get("education_level"),
+		"updated_at": datetime.now(timezone.utc).isoformat(),
+	}
+	try:
+		collection = get_user_profile_collection()
+		await collection.update_one({"user_id": user_id}, {"$set": document}, upsert=True)
+	except Exception:
+		_profile_fallback[user_id] = document
+	return document

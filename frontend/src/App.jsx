@@ -77,7 +77,7 @@ function App() {
                 <header className="topbar">
                     <div>
                         <p className="eyebrow">MTech Final Year Project</p>
-                        <h1>Career Guidance System</h1>
+                        <h1>Agentic Career Intelligence System</h1>
                     </div>
                     <nav className="nav-links">
                         <NavLink to="/">Home</NavLink>

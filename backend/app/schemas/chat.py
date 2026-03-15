@@ -1,4 +1,5 @@
 from typing import Any
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -7,11 +8,21 @@ class ChatRequest(BaseModel):
 	user_id: str
 	message: str
 	context: dict | None = None
+	context_owner_type: Literal["self", "on_behalf"] = "self"
+	skills: list[str] = Field(default_factory=list)
+	interests: list[str] = Field(default_factory=list)
+	education_level: str | None = None
+	psychometric_dimensions: dict[str, int] | None = None
 
 
 class ChatMeRequest(BaseModel):
 	message: str
 	context: dict | None = None
+	context_owner_type: Literal["self", "on_behalf"] = "self"
+	skills: list[str] = Field(default_factory=list)
+	interests: list[str] = Field(default_factory=list)
+	education_level: str | None = None
+	psychometric_dimensions: dict[str, int] | None = None
 
 
 class ChatResponse(BaseModel):

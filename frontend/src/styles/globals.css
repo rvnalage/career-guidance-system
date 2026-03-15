@@ -292,6 +292,70 @@ select {
     gap: 0.6rem;
 }
 
+.chat-context-card {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 0.8rem;
+    background: rgba(255, 255, 255, 0.74);
+    display: grid;
+    gap: 0.6rem;
+}
+
+.chat-context-card h3 {
+    margin: 0;
+}
+
+.chat-context-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+    gap: 0.6rem;
+}
+
+.chat-context-psychometric {
+    display: grid;
+    gap: 0.45rem;
+}
+
+.chat-dimension-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 24px;
+    gap: 0.55rem;
+    align-items: center;
+    text-transform: capitalize;
+}
+
+.chat-upload-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.6rem;
+    align-items: center;
+}
+
+.clear-action-row {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.confirm-panel {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.7rem;
+    background: rgba(255, 255, 255, 0.78);
+    display: grid;
+    gap: 0.55rem;
+}
+
+.confirm-panel p {
+    margin: 0;
+}
+
+.confirm-panel-actions {
+    display: flex;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+}
+
 .citation-block {
     margin-top: 0.45rem;
     border-top: 1px dashed var(--border);
@@ -455,6 +519,12 @@ select {
     }
 
     .chat-input-row {
+        grid-template-columns: 1fr;
+    }
+
+    .chat-context-grid,
+    .chat-dimension-row,
+    .chat-upload-row {
         grid-template-columns: 1fr;
     }
 

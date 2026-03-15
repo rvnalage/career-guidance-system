@@ -35,6 +35,11 @@ function DashboardPage() {
     const [ragBusy, setRagBusy] = useState(false);
     const [llmStatus, setLlmStatus] = useState(null);
     const [xaiStatus, setXaiStatus] = useState(null);
+    const [ownerType, setOwnerType] = useState("self");
+    const [uploadFiles, setUploadFiles] = useState([]);
+    const [uploadBusy, setUploadBusy] = useState(false);
+    const [uploadMessage, setUploadMessage] = useState("");
+    const [pendingRecommendationClearTarget, setPendingRecommendationClearTarget] = useState(null);
 
     const loadSummary = async () => {
         try {
@@ -209,6 +214,48 @@ function DashboardPage() {
         }
     };
 
+    const uploadProfileFiles = async () => {
+        if (uploadFiles.length === 0) {
+            return;
+        }
+
+        setUploadBusy(true);
+        setUploadMessage("");
+        try {
+            const formData = new FormData();
+            formData.append("owner_type", ownerType);
+            uploadFiles.forEach((file) => formData.append("files", file));
+
+            const response = await apiClient.post("/profile-intake/upload", formData, {
+                headers: {
+                    "Content-Type": "multipart/form-data",
+                },
+            });
+
+            const extracted = response.data?.extracted_profile || {};
+            if ((extracted.skills || []).length > 0) {
+                setForm((prev) => ({ ...prev, skills: extracted.skills.join(", ") }));
+            }
+            if ((extracted.interests || []).length > 0) {
+                setForm((prev) => ({ ...prev, interests: extracted.interests.join(", ") }));
+            }
+            if (extracted.education_level) {
+                setForm((prev) => ({ ...prev, education_level: extracted.education_level }));
+            }
+            if (extracted.psychometric_dimensions) {
+                setPsychometric((prev) => ({ ...prev, ...extracted.psychometric_dimensions }));
+            }
+
+            setUploadMessage(response.data?.message || "Upload parsed.");
+            await loadSummary();
+            await loadDashboardReport();
+        } catch (err) {
+            setUploadMessage(err.response?.data?.detail || "Could not parse uploaded files");
+        } finally {
+            setUploadBusy(false);
+        }
+    };
+
     const recentMessages = chatHistory.slice(-6);
     const latestRecommendationSnapshot = recommendationHistory[0]?.recommendations || [];
     const effectiveRecommendations = recommendations.length > 0
@@ -255,9 +302,14 @@ function DashboardPage() {
         const url = URL.createObjectURL(blob);
         const anchor = document.createElement("a");
         anchor.href = url;
-        anchor.download = `career-guidance-report-${new Date().toISOString().slice(0, 10)}.json`;
+        anchor.download = `agentic-career-intelligence-report-${new Date().toISOString().slice(0, 10)}.json`;
         anchor.click();
         URL.revokeObjectURL(url);
+    };
+
+    const clearRecommendationLocalView = async () => {
+        setRecommendations([]);
+        setExplanations([]);
     };
 
     const clearRecommendationHistory = async () => {
@@ -265,12 +317,23 @@ function DashboardPage() {
         try {
             await apiClient.delete("/recommendations/history/me");
             setRecommendations([]);
+            setExplanations([]);
             await loadSummary();
             await loadDashboardReport();
             await loadHistoryPanels();
         } catch (err) {
             setError(err.response?.data?.detail || "Could not clear recommendation history");
         }
+    };
+
+    const confirmRecommendationClear = async () => {
+        if (pendingRecommendationClearTarget === "local") {
+            await clearRecommendationLocalView();
+        }
+        if (pendingRecommendationClearTarget === "backend") {
+            await clearRecommendationHistory();
+        }
+        setPendingRecommendationClearTarget(null);
     };
 
     return (
@@ -343,10 +406,31 @@ function DashboardPage() {
                             <button className="button" type="submit">
                                 Run Recommendation Engine
                             </button>
-                            <button className="button ghost" type="button" onClick={clearRecommendationHistory}>
-                                Clear Recommendation History
+                            <button className="button ghost" type="button" onClick={() => setPendingRecommendationClearTarget("local")}>
+                                Clear Recommendation View
+                            </button>
+                            <button className="button ghost" type="button" onClick={() => setPendingRecommendationClearTarget("backend")}>
+                                Clear Saved Recommendation History
                             </button>
                         </form>
+
+                        {pendingRecommendationClearTarget ? (
+                            <div className="confirm-panel">
+                                <p>
+                                    {pendingRecommendationClearTarget === "backend"
+                                        ? "Confirm clear of saved recommendation history from backend?"
+                                        : "Confirm clear of recommendation results visible in this dashboard?"}
+                                </p>
+                                <div className="confirm-panel-actions">
+                                    <button className="button" type="button" onClick={confirmRecommendationClear}>
+                                        Confirm Clear
+                                    </button>
+                                    <button className="button secondary" type="button" onClick={() => setPendingRecommendationClearTarget(null)}>
+                                        Cancel
+                                    </button>
+                                </div>
+                            </div>
+                        ) : null}
 
                         {effectiveRecommendations.length > 0 ? (
                             <div className="recommendation-list">
@@ -544,6 +628,32 @@ function DashboardPage() {
                     <article className="card side-panel">
                         <p className="eyebrow">Profile Context</p>
                         <h2>Psychometric scoring</h2>
+                        <div className="chat-context-card" style={{ marginBottom: "0.75rem" }}>
+                            <label>
+                                Owner
+                                <select value={ownerType} onChange={(event) => setOwnerType(event.target.value)}>
+                                    <option value="self">For myself</option>
+                                    <option value="on_behalf">On behalf of someone</option>
+                                </select>
+                            </label>
+                            <div className="chat-upload-row">
+                                <input
+                                    type="file"
+                                    multiple
+                                    accept=".txt,.md,.csv,.json,.log"
+                                    onChange={(event) => setUploadFiles(Array.from(event.target.files || []))}
+                                />
+                                <button
+                                    className="button secondary"
+                                    type="button"
+                                    onClick={uploadProfileFiles}
+                                    disabled={uploadBusy || uploadFiles.length === 0}
+                                >
+                                    {uploadBusy ? "Parsing..." : "Parse Profile Files"}
+                                </button>
+                            </div>
+                            {uploadMessage ? <p className="muted-text">{uploadMessage}</p> : null}
+                        </div>
                         <div className="psychometric-grid">
                             {Object.keys(psychometric).map((trait) => (
                                 <label key={trait} className="slider-row">

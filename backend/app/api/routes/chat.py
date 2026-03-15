@@ -21,6 +21,8 @@ from app.services.profile_service import (
 	update_user_profile,
 )
 from app.services.rag_service import build_rag_context, get_rag_citations
+from app.services.psychometric_service import save_user_psychometric_profile
+from app.schemas.psychometric import PsychometricRequest
 
 router = APIRouter()
 
@@ -28,11 +30,19 @@ router = APIRouter()
 @router.post("/message", response_model=ChatResponse)
 async def send_message(payload: ChatRequest) -> ChatResponse:
 	"""Process an anonymous chat message and return a grounded assistant response."""
+	base_context = dict(payload.context or {})
+	if payload.skills:
+		base_context["skills"] = payload.skills
+	if payload.interests:
+		base_context["interests"] = payload.interests
+	if payload.education_level:
+		base_context["education_level"] = payload.education_level
+
 	# Persist the raw user turn first so downstream enrichment failures do not lose the request.
 	await append_message(payload.user_id, "user", payload.message)
 	profile = await get_user_profile(payload.user_id)
 	# Merge explicit request context with long-lived profile memory before intent routing.
-	resolved_context = merge_context_with_profile(payload.context, profile)
+	resolved_context = merge_context_with_profile(base_context, profile)
 
 	intent, reply, next_step, confidence, keyword_matches = get_agent_response_with_confidence(
 		payload.message,
@@ -60,13 +70,19 @@ async def send_message(payload: ChatRequest) -> ChatResponse:
 
 	await append_message(payload.user_id, "assistant", f"[{intent}] {final_reply}")
 	# Update profile after the turn so future requests can reuse extracted skills, interests, and role hints.
-	await update_user_profile(
-		user_id=payload.user_id,
-		message=payload.message,
-		context=resolved_context,
-		intent=intent,
-		intent_confidence=confidence,
-	)
+	if payload.context_owner_type == "self":
+		await update_user_profile(
+			user_id=payload.user_id,
+			message=payload.message,
+			context=resolved_context,
+			intent=intent,
+			intent_confidence=confidence,
+		)
+		if payload.psychometric_dimensions:
+			await save_user_psychometric_profile(
+				payload.user_id,
+				PsychometricRequest(dimensions=payload.psychometric_dimensions),
+			)
 	return ChatResponse(
 		reply=final_reply,
 		suggested_next_step=next_step,
@@ -81,10 +97,18 @@ async def send_message_me(
 	current_user: Annotated[User, Depends(get_current_user)],
 ) -> ChatResponse:
 	"""Process an authenticated chat message using the user identity from JWT state."""
+	base_context = dict(payload.context or {})
+	if payload.skills:
+		base_context["skills"] = payload.skills
+	if payload.interests:
+		base_context["interests"] = payload.interests
+	if payload.education_level:
+		base_context["education_level"] = payload.education_level
+
 	# The authenticated variant derives identity from JWT and never trusts a client-supplied user_id.
 	await append_message(current_user.id, "user", payload.message)
 	profile = await get_user_profile(current_user.id)
-	resolved_context = merge_context_with_profile(payload.context, profile)
+	resolved_context = merge_context_with_profile(base_context, profile)
 
 	intent, reply, next_step, confidence, keyword_matches = get_agent_response_with_confidence(
 		payload.message,
@@ -109,13 +133,19 @@ async def send_message_me(
 	final_reply = enhanced_reply or augmented_reply
 
 	await append_message(current_user.id, "assistant", f"[{intent}] {final_reply}")
-	await update_user_profile(
-		user_id=current_user.id,
-		message=payload.message,
-		context=resolved_context,
-		intent=intent,
-		intent_confidence=confidence,
-	)
+	if payload.context_owner_type == "self":
+		await update_user_profile(
+			user_id=current_user.id,
+			message=payload.message,
+			context=resolved_context,
+			intent=intent,
+			intent_confidence=confidence,
+		)
+		if payload.psychometric_dimensions:
+			await save_user_psychometric_profile(
+				current_user.id,
+				PsychometricRequest(dimensions=payload.psychometric_dimensions),
+			)
 	return ChatResponse(
 		reply=final_reply,
 		suggested_next_step=next_step,
