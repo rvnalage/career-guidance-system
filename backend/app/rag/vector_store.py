@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Sequence
 
 from app.rag.knowledge_base import KnowledgeChunk
+
+
+logger = logging.getLogger(__name__)
 
 
 class InMemoryVectorStore:
@@ -14,6 +18,7 @@ class InMemoryVectorStore:
 		self._chunks: list[KnowledgeChunk] = []
 		self._vectorizer = None
 		self._matrix = None
+		self._vector_search_enabled = True
 
 	def set_chunks(self, chunks: Sequence[KnowledgeChunk]) -> None:
 		"""Rebuild the TF-IDF index from the supplied chunks."""
@@ -23,12 +28,29 @@ class InMemoryVectorStore:
 			self._matrix = None
 			return
 
-		# Lazy imports avoid hard failures when optional heavy deps are unavailable.
-		from sklearn.feature_extraction.text import TfidfVectorizer
+		if not self._vector_search_enabled:
+			self._vectorizer = None
+			self._matrix = None
+			return
+
+		try:
+			from sklearn.feature_extraction.text import TfidfVectorizer
+		except Exception as exc:
+			logger.warning("Disabling vector search because sklearn import failed: %s", exc)
+			self._vector_search_enabled = False
+			self._vectorizer = None
+			self._matrix = None
+			return
 
 		corpus = [f"{chunk.title} {chunk.text}" for chunk in self._chunks]
-		self._vectorizer = TfidfVectorizer(ngram_range=(1, 2), min_df=1)
-		self._matrix = self._vectorizer.fit_transform(corpus)
+		try:
+			self._vectorizer = TfidfVectorizer(ngram_range=(1, 2), min_df=1)
+			self._matrix = self._vectorizer.fit_transform(corpus)
+		except Exception as exc:
+			logger.warning("Disabling vector search because TF-IDF index build failed: %s", exc)
+			self._vector_search_enabled = False
+			self._vectorizer = None
+			self._matrix = None
 
 	def search(self, query: str, top_k: int) -> list[tuple[float, KnowledgeChunk]]:
 		"""Return top-k positively scored chunks for a query using cosine similarity."""

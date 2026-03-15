@@ -102,6 +102,94 @@ h4 {
     gap: 1rem;
 }
 
+.dashboard-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.dashboard-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.9fr);
+    gap: 1rem;
+    align-items: start;
+}
+
+.dashboard-main-column,
+.dashboard-side-column {
+    display: grid;
+    gap: 1rem;
+}
+
+.dashboard-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.9fr);
+    gap: 1rem;
+    overflow: hidden;
+    position: relative;
+}
+
+.dashboard-hero::after {
+    content: "";
+    position: absolute;
+    inset: auto -8% -30% auto;
+    width: 220px;
+    height: 220px;
+    border-radius: 999px;
+    background: radial-gradient(circle, rgba(15, 143, 112, 0.16), transparent 70%);
+    pointer-events: none;
+}
+
+.dashboard-hero-copy,
+.section-copy {
+    max-width: 62ch;
+    margin: 0.55rem 0 0;
+}
+
+.dashboard-pill-row,
+.status-chip-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin-top: 0.85rem;
+}
+
+.dashboard-pill,
+.status-chip {
+    border-radius: 999px;
+    padding: 0.38rem 0.7rem;
+    font-size: 0.78rem;
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+}
+
+.dashboard-hero-metrics {
+    display: grid;
+    gap: 0.6rem;
+    align-content: start;
+}
+
+.metric-highlight {
+    background: linear-gradient(140deg, rgba(15, 143, 112, 0.14), rgba(27, 117, 187, 0.1));
+}
+
+.dashboard-primary-panel,
+.side-panel {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.compact-grid {
+    grid-template-columns: 1fr 1fr;
+}
+
+.compact-history-list {
+    max-height: 420px;
+    overflow-y: auto;
+    padding-right: 0.15rem;
+}
+
 .panel-intro h2 {
     margin: 0.2rem 0 0.8rem;
     font-size: clamp(1.5rem, 3.2vw, 2rem);
@@ -356,7 +444,13 @@ select {
     }
 
     .hero-grid,
-    .dashboard-grid {
+    .dashboard-grid,
+    .dashboard-layout,
+    .dashboard-hero {
+        grid-template-columns: 1fr;
+    }
+
+    .compact-grid {
         grid-template-columns: 1fr;
     }
 

@@ -23,16 +23,26 @@ INGESTION_META = {
 	"skipped_noisy_chunks": 0,
 	"skipped_duplicate_chunks": 0,
 }
+_VECTOR_INDEX_READY = False
 
-VECTOR_STORE.set_chunks(BASE_CORPUS)
+
+def _ensure_vector_index() -> None:
+	"""Build the active vector index on demand so app startup stays lightweight."""
+	global _VECTOR_INDEX_READY
+	if _VECTOR_INDEX_READY:
+		return
+	VECTOR_STORE.set_chunks(_active_corpus())
+	_VECTOR_INDEX_READY = True
 
 
 def ingest_directory(directory_path: str | None = None) -> dict[str, Any]:
 	"""Ingest document chunks from disk and refresh the active in-memory vector index."""
+	global _VECTOR_INDEX_READY
 	result = load_document_chunks(directory_path)
 	DOC_CORPUS.clear()
 	DOC_CORPUS.extend(result["ingested_chunks"])
 	VECTOR_STORE.set_chunks(_active_corpus())
+	_VECTOR_INDEX_READY = True
 
 	INGESTION_META["last_ingested_at"] = datetime.now(timezone.utc).isoformat()
 	INGESTION_META["ingested_files"] = result["ingested_files"]
@@ -78,6 +88,7 @@ def retrieve_relevant_chunks(
 	"""Retrieve top chunks for a query using rewriting, reranking, and optional metadata filters."""
 	if not settings.rag_enabled:
 		return []
+	_ensure_vector_index()
 	rewritten_query = rewrite_query(query)
 	limit = top_k if top_k is not None else settings.rag_top_k
 	auto_filters = infer_metadata_filters(rewritten_query)
