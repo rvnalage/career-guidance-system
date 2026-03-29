@@ -11,6 +11,10 @@ from typing import Optional
 import requests
 
 from app.config import settings
+from app.utils.logger import get_logger
+
+
+logger = get_logger(__name__)
 
 
 SYSTEM_PROMPT = (
@@ -145,4 +149,5 @@ def generate_llm_reply(
 		return llm_text or None
 	except Exception:
 		# Keep chat resilient even when the local Ollama service is missing, down, or returns malformed data.
+		logger.exception("LLM refinement request failed")
 		return None

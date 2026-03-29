@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import ConfirmModal from "../components/Common/ConfirmModal";
 import { apiClient } from "../services/api";
 
 const DEFAULT_PSYCHOMETRIC = {
@@ -25,6 +26,7 @@ function ChatPage({ isAuthenticated, currentUser }) {
     const [uploadMessage, setUploadMessage] = useState("");
     const [uploadLoading, setUploadLoading] = useState(false);
     const [pendingClearTarget, setPendingClearTarget] = useState(null);
+    const [isProfileSectionCollapsed, setIsProfileSectionCollapsed] = useState(false);
 
     const parseCsv = (value) =>
         value
@@ -98,11 +100,15 @@ function ChatPage({ isAuthenticated, currentUser }) {
             if (err.response?.status === 401) {
                 setError("Session expired. Please login again.");
             }
+            const failureMessage = err.response?.data?.detail
+                || (err.code === "ECONNABORTED"
+                    ? "Chat request timed out. Backend is reachable but response took too long."
+                    : err.message || "Unable to reach chat service");
             setChat((prev) => [
                 ...prev,
                 {
                     role: "assistant",
-                    text: err.response?.data?.detail || "Unable to reach chat service",
+                    text: failureMessage,
                 },
             ]);
         } finally {
@@ -159,64 +165,84 @@ function ChatPage({ isAuthenticated, currentUser }) {
             </div>
 
             <article className="chat-context-card">
-                <h3>Profile Context</h3>
-                <div className="chat-context-grid">
-                    <label>
-                        Owner
-                        <select value={ownerType} onChange={(event) => setOwnerType(event.target.value)}>
-                            <option value="self">For myself</option>
-                            <option value="on_behalf">On behalf of someone</option>
-                        </select>
-                    </label>
-                    <label>
-                        Education
-                        <select value={educationLevel} onChange={(event) => setEducationLevel(event.target.value)}>
-                            <option value="high_school">High School</option>
-                            <option value="diploma">Diploma</option>
-                            <option value="bachelor">Bachelor</option>
-                            <option value="master">Master</option>
-                            <option value="phd">PhD</option>
-                        </select>
-                    </label>
+                <div className="collapsible-card-header">
+                    <button
+                        type="button"
+                        className="collapsible-trigger"
+                        aria-expanded={!isProfileSectionCollapsed}
+                        aria-controls="chat-profile-context-content"
+                        onClick={() => setIsProfileSectionCollapsed((prev) => !prev)}
+                    >
+                        <div>
+                            <h3>Profile Context</h3>
+                        </div>
+                        <span className="collapse-icon" aria-hidden="true">
+                            {isProfileSectionCollapsed ? "Expand" : "Minimize"}
+                        </span>
+                    </button>
                 </div>
-                <label>
-                    Skills (comma separated)
-                    <input
-                        value={skillsInput}
-                        placeholder="python, sql, statistics"
-                        onChange={(event) => setSkillsInput(event.target.value)}
-                    />
-                </label>
-                <label>
-                    Interests (comma separated)
-                    <input
-                        value={interestsInput}
-                        placeholder="data science, ai, research"
-                        onChange={(event) => setInterestsInput(event.target.value)}
-                    />
-                </label>
 
-                <div className="chat-context-psychometric">
-                    <p className="muted-text">Psychometric quick inputs (1-5)</p>
-                    {Object.entries(psychometric).map(([dimension, value]) => (
-                        <label key={dimension} className="chat-dimension-row">
-                            <span>{dimension}</span>
+                {!isProfileSectionCollapsed ? (
+                    <div id="chat-profile-context-content" className="collapsible-content">
+                        <div className="chat-context-grid">
+                            <label>
+                                Owner
+                                <select value={ownerType} onChange={(event) => setOwnerType(event.target.value)}>
+                                    <option value="self">For myself</option>
+                                    <option value="on_behalf">On behalf of someone</option>
+                                </select>
+                            </label>
+                            <label>
+                                Education
+                                <select value={educationLevel} onChange={(event) => setEducationLevel(event.target.value)}>
+                                    <option value="high_school">High School</option>
+                                    <option value="diploma">Diploma</option>
+                                    <option value="bachelor">Bachelor</option>
+                                    <option value="master">Master</option>
+                                    <option value="phd">PhD</option>
+                                </select>
+                            </label>
+                        </div>
+                        <label>
+                            Skills (comma separated)
                             <input
-                                type="range"
-                                min="1"
-                                max="5"
-                                value={value}
-                                onChange={(event) =>
-                                    setPsychometric((prev) => ({
-                                        ...prev,
-                                        [dimension]: Number(event.target.value),
-                                    }))
-                                }
+                                value={skillsInput}
+                                placeholder="python, sql, statistics"
+                                onChange={(event) => setSkillsInput(event.target.value)}
                             />
-                            <strong>{value}</strong>
                         </label>
-                    ))}
-                </div>
+                        <label>
+                            Interests (comma separated)
+                            <input
+                                value={interestsInput}
+                                placeholder="data science, ai, research"
+                                onChange={(event) => setInterestsInput(event.target.value)}
+                            />
+                        </label>
+
+                        <div className="chat-context-psychometric">
+                            <p className="muted-text">Psychometric quick inputs (1-5)</p>
+                            {Object.entries(psychometric).map(([dimension, value]) => (
+                                <label key={dimension} className="chat-dimension-row">
+                                    <span>{dimension}</span>
+                                    <input
+                                        type="range"
+                                        min="1"
+                                        max="5"
+                                        value={value}
+                                        onChange={(event) =>
+                                            setPsychometric((prev) => ({
+                                                ...prev,
+                                                [dimension]: Number(event.target.value),
+                                            }))
+                                        }
+                                    />
+                                    <strong>{value}</strong>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                ) : null}
             </article>
 
             {isAuthenticated ? (
@@ -302,23 +328,16 @@ function ChatPage({ isAuthenticated, currentUser }) {
                 ) : null}
             </div>
 
-            {pendingClearTarget ? (
-                <div className="confirm-panel">
-                    <p>
-                        {pendingClearTarget === "backend"
-                            ? "Confirm clear of saved backend chat history?"
-                            : "Confirm clear of chat currently shown on screen?"}
-                    </p>
-                    <div className="confirm-panel-actions">
-                        <button className="button" type="button" onClick={confirmClear}>
-                            Confirm Clear
-                        </button>
-                        <button className="button secondary" type="button" onClick={() => setPendingClearTarget(null)}>
-                            Cancel
-                        </button>
-                    </div>
-                </div>
-            ) : null}
+            <ConfirmModal
+                open={Boolean(pendingClearTarget)}
+                title="Confirm Clear"
+                message={pendingClearTarget === "backend"
+                    ? "Confirm clear of saved backend chat history?"
+                    : "Confirm clear of chat currently shown on screen?"}
+                confirmLabel="Confirm Clear"
+                onConfirm={confirmClear}
+                onCancel={() => setPendingClearTarget(null)}
+            />
         </section>
     );
 }

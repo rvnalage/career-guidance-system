@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
 
+import ConfirmModal from "../components/Common/ConfirmModal";
+import { MarketDemandPanel, RagSearchPanel, RuntimeSignalsPanel } from "../components/Dashboard/CareerOptions";
+import CollapsibleCard, { DashboardHero } from "../components/Dashboard/Dashboard";
+import { EvidencePanel, ExplanationPanel, RecommendationWorkspace } from "../components/Dashboard/Recommendations";
+import { ProfileContextPanel } from "../components/Dashboard/SkillsGapAnalysis";
 import { apiClient } from "../services/api";
 
 const initialForm = {
@@ -40,6 +45,23 @@ function DashboardPage() {
     const [uploadBusy, setUploadBusy] = useState(false);
     const [uploadMessage, setUploadMessage] = useState("");
     const [pendingRecommendationClearTarget, setPendingRecommendationClearTarget] = useState(null);
+    const [collapsedSections, setCollapsedSections] = useState({
+        hero: false,
+        recommendations: false,
+        explanations: false,
+        evidence: false,
+        runtimeSignals: false,
+        ragSearch: false,
+        marketDemand: false,
+        psychometric: false,
+    });
+
+    const toggleSection = (sectionKey) => {
+        setCollapsedSections((prev) => ({
+            ...prev,
+            [sectionKey]: !prev[sectionKey],
+        }));
+    };
 
     const loadSummary = async () => {
         try {
@@ -274,7 +296,7 @@ function DashboardPage() {
         `${form.skills.split(",").map((item) => item.trim()).filter(Boolean).length} skill signals`,
         `${form.interests.split(",").map((item) => item.trim()).filter(Boolean).length} interest signals`,
         `${form.education_level} education context`,
-    ].join(" • ");
+    ].join(" | ");
 
     const exportDashboardReport = async () => {
         let reportPayload;
@@ -338,360 +360,168 @@ function DashboardPage() {
 
     return (
         <section className="dashboard-stack">
-            <article className="card dashboard-hero">
-                <div>
-                    <p className="eyebrow">Context Aware Dashboard</p>
-                    <h2>Decision workspace built around your current profile context</h2>
-                    <p className="muted-text dashboard-hero-copy">
-                        Keep the recommendation workflow, chat evidence, psychometric signals, and retrieval context in one place.
-                    </p>
-                    <div className="dashboard-pill-row">
-                        <span className="dashboard-pill">{profileSignals}</span>
-                        <span className="dashboard-pill">{conversationTurns} chat turns</span>
-                        <span className="dashboard-pill">{recommendationRuns} recommendation runs</span>
-                    </div>
-                </div>
-                <div className="dashboard-hero-metrics">
-                    <div className="metric-item metric-highlight">
-                        <span>Profile Completion</span>
-                        <strong>{summary ? `${summary.profile_completion}%` : "--"}</strong>
-                    </div>
-                    <div className="metric-item">
-                        <span>Current Focus</span>
-                        <strong>{topRolesText}</strong>
-                    </div>
-                    <div className="metric-item">
-                        <span>Next Action</span>
-                        <strong>{nextAction}</strong>
-                    </div>
-                </div>
-            </article>
+            <DashboardHero
+                summary={summary}
+                topRolesText={topRolesText}
+                nextAction={nextAction}
+                profileSignals={profileSignals}
+                conversationTurns={conversationTurns}
+                recommendationRuns={recommendationRuns}
+                collapsedSections={collapsedSections}
+                toggleSection={toggleSection}
+            />
 
             <section className="dashboard-layout">
                 <div className="dashboard-main-column">
-                    <article className="card dashboard-primary-panel">
-                        <div className="panel-header-actions">
-                            <div>
-                                <p className="eyebrow">Recommendation Workspace</p>
-                                <h2>Generate and compare career directions</h2>
-                            </div>
+                    <CollapsibleCard
+                        sectionKey="recommendations"
+                        eyebrow="Recommendation Workspace"
+                        title="Generate and compare career directions"
+                        collapsedSections={collapsedSections}
+                        toggleSection={toggleSection}
+                        contentId="dashboard-recommendations-content"
+                        className="card dashboard-primary-panel"
+                        actions={(
                             <button className="button secondary" type="button" onClick={exportDashboardReport}>
                                 Export Report JSON
                             </button>
-                        </div>
-                        <p className="muted-text section-copy">
-                            Update your active skills, interests, and education context, then run the recommendation engine and explanation panel together.
-                        </p>
-                        <form onSubmit={generateRecommendations}>
-                            <input
-                                value={form.interests}
-                                onChange={(event) => setForm((prev) => ({ ...prev, interests: event.target.value }))}
-                                placeholder="Interests (comma separated)"
-                            />
-                            <input
-                                value={form.skills}
-                                onChange={(event) => setForm((prev) => ({ ...prev, skills: event.target.value }))}
-                                placeholder="Skills (comma separated)"
-                            />
-                            <select
-                                value={form.education_level}
-                                onChange={(event) => setForm((prev) => ({ ...prev, education_level: event.target.value }))}
-                            >
-                                <option value="high_school">High School</option>
-                                <option value="diploma">Diploma</option>
-                                <option value="bachelor">Bachelor</option>
-                                <option value="master">Master</option>
-                                <option value="phd">PhD</option>
-                            </select>
-                            <button className="button" type="submit">
-                                Run Recommendation Engine
-                            </button>
-                            <button className="button ghost" type="button" onClick={() => setPendingRecommendationClearTarget("local")}>
-                                Clear Recommendation View
-                            </button>
-                            <button className="button ghost" type="button" onClick={() => setPendingRecommendationClearTarget("backend")}>
-                                Clear Saved Recommendation History
-                            </button>
-                        </form>
+                        )}
+                    >
+                        <RecommendationWorkspace
+                            form={form}
+                            setForm={setForm}
+                            generateRecommendations={generateRecommendations}
+                            effectiveRecommendations={effectiveRecommendations}
+                            submitRecommendationFeedback={submitRecommendationFeedback}
+                            error={error}
+                            setPendingRecommendationClearTarget={setPendingRecommendationClearTarget}
+                        />
+                    </CollapsibleCard>
 
-                        {pendingRecommendationClearTarget ? (
-                            <div className="confirm-panel">
-                                <p>
-                                    {pendingRecommendationClearTarget === "backend"
-                                        ? "Confirm clear of saved recommendation history from backend?"
-                                        : "Confirm clear of recommendation results visible in this dashboard?"}
-                                </p>
-                                <div className="confirm-panel-actions">
-                                    <button className="button" type="button" onClick={confirmRecommendationClear}>
-                                        Confirm Clear
-                                    </button>
-                                    <button className="button secondary" type="button" onClick={() => setPendingRecommendationClearTarget(null)}>
-                                        Cancel
-                                    </button>
-                                </div>
-                            </div>
-                        ) : null}
-
-                        {effectiveRecommendations.length > 0 ? (
-                            <div className="recommendation-list">
-                                {effectiveRecommendations.map((item) => (
-                                    <article key={item.role} className="recommendation-item">
-                                        <h4>{item.role}</h4>
-                                        <p>{item.reason}</p>
-                                        <small>Confidence: {(item.confidence * 100).toFixed(1)}%</small>
-                                        <div className="feedback-row">
-                                            <button
-                                                className="button secondary"
-                                                type="button"
-                                                onClick={() => submitRecommendationFeedback(item.role, true)}
-                                            >
-                                                Helpful
-                                            </button>
-                                            <button
-                                                className="button ghost"
-                                                type="button"
-                                                onClick={() => submitRecommendationFeedback(item.role, false)}
-                                            >
-                                                Not Helpful
-                                            </button>
-                                        </div>
-                                    </article>
-                                ))}
-                            </div>
-                        ) : null}
-
-                        {error ? <p className="error-text">{error}</p> : null}
-                    </article>
-
-                    <article className="card dashboard-primary-panel">
-                        <div className="panel-header-actions">
-                            <div>
-                                <p className="eyebrow">Why These Roles</p>
-                                <h2>Explanation panel</h2>
-                            </div>
+                    <CollapsibleCard
+                        sectionKey="explanations"
+                        eyebrow="Why These Roles"
+                        title="Explanation panel"
+                        collapsedSections={collapsedSections}
+                        toggleSection={toggleSection}
+                        contentId="dashboard-explanations-content"
+                        className="card dashboard-primary-panel"
+                        actions={(
                             <div className="status-chip-row">
                                 {xaiStatus ? <span className="status-chip">XAI: {xaiStatus.active_mode}</span> : null}
                                 {llmStatus ? <span className="status-chip">LLM: {llmStatus.enabled ? "enabled" : "disabled"}</span> : null}
                             </div>
-                        </div>
-                        {explanations.length === 0 ? (
-                            <p className="muted-text">Generate recommendations to view feature contribution explanations.</p>
-                        ) : (
-                            <div className="explanation-grid">
-                                {explanations.map((item) => (
-                                    <article key={item.role} className="history-item">
-                                        <h3>{item.role}</h3>
-                                        <small>{item.label}</small>
-                                        {item.contributions.map((contribution) => (
-                                            <div key={`${item.role}-${contribution.feature}`} className="contribution-row">
-                                                <span>{contribution.feature}</span>
-                                                <strong>{(contribution.value * 100).toFixed(1)}%</strong>
-                                            </div>
-                                        ))}
-                                    </article>
-                                ))}
-                            </div>
                         )}
-                    </article>
+                    >
+                        <ExplanationPanel explanations={explanations} />
+                    </CollapsibleCard>
 
-                    <article className="card dashboard-primary-panel">
-                        <div className="panel-header-actions">
-                            <div>
-                                <p className="eyebrow">Evidence And Continuity</p>
-                                <h2>Recent activity and last recommendation context</h2>
-                            </div>
-                        </div>
-                        {loadingHistory ? <p className="muted-text">Loading activity timeline...</p> : null}
-
-                        <div className="history-grid">
-                            <section>
-                                <h3>Recent Chat</h3>
-                                {effectiveRecentMessages.length === 0 ? (
-                                    <p className="muted-text">No chat history yet. Start a conversation in Chat.</p>
-                                ) : (
-                                    <div className="history-list">
-                                        {effectiveRecentMessages.map((item, index) => (
-                                            <article key={`${item.role}-${index}`} className="history-item">
-                                                <small>{item.role}</small>
-                                                <p>{item.text || item.content}</p>
-                                            </article>
-                                        ))}
-                                    </div>
-                                )}
-                            </section>
-
-                            <section>
-                                <h3>Last Recommendation Run</h3>
-                                {effectiveRecommendations.length === 0 ? (
-                                    <p className="muted-text">Run recommendation engine to capture snapshots.</p>
-                                ) : (
-                                    <div className="history-list">
-                                        {effectiveRecommendations.map((item) => (
-                                            <article key={item.role} className="history-item">
-                                                <small>{item.role}</small>
-                                                <p>{item.reason}</p>
-                                            </article>
-                                        ))}
-                                    </div>
-                                )}
-                            </section>
-                        </div>
-                    </article>
+                    <CollapsibleCard
+                        sectionKey="evidence"
+                        eyebrow="Evidence And Continuity"
+                        title="Recent activity and last recommendation context"
+                        collapsedSections={collapsedSections}
+                        toggleSection={toggleSection}
+                        contentId="dashboard-evidence-content"
+                        className="card dashboard-primary-panel"
+                    >
+                        <EvidencePanel
+                            loadingHistory={loadingHistory}
+                            effectiveRecentMessages={effectiveRecentMessages}
+                            effectiveRecommendations={effectiveRecommendations}
+                        />
+                    </CollapsibleCard>
                 </div>
 
                 <aside className="dashboard-side-column">
-                    <article className="card side-panel">
-                        <p className="eyebrow">System Context</p>
-                        <h2>Runtime signals</h2>
-                        <div className="metric-grid compact-grid">
-                            <div className="metric-item">
-                                <span>LLM</span>
-                                <strong>{llmStatus ? (llmStatus.enabled ? "Enabled" : "Disabled") : "--"}</strong>
-                            </div>
-                            <div className="metric-item">
-                                <span>XAI Mode</span>
-                                <strong>{xaiStatus?.active_mode || "--"}</strong>
-                            </div>
-                            <div className="metric-item">
-                                <span>RAG Chunks</span>
-                                <strong>{ragStatus?.total_chunks ?? "--"}</strong>
-                            </div>
-                            <div className="metric-item">
-                                <span>Active Model</span>
-                                <strong>{llmStatus?.active_model || "--"}</strong>
-                            </div>
-                        </div>
-                    </article>
+                    <CollapsibleCard
+                        sectionKey="runtimeSignals"
+                        eyebrow="System Context"
+                        title="Runtime signals"
+                        collapsedSections={collapsedSections}
+                        toggleSection={toggleSection}
+                        contentId="dashboard-runtime-content"
+                        className="card side-panel"
+                    >
+                        <RuntimeSignalsPanel llmStatus={llmStatus} xaiStatus={xaiStatus} ragStatus={ragStatus} />
+                    </CollapsibleCard>
 
-                    <article className="card side-panel">
-                        <div className="panel-header-actions">
-                            <div>
-                                <p className="eyebrow">Knowledge Context</p>
-                                <h2>RAG search</h2>
-                            </div>
+                    <CollapsibleCard
+                        sectionKey="ragSearch"
+                        eyebrow="Knowledge Context"
+                        title="RAG search"
+                        collapsedSections={collapsedSections}
+                        toggleSection={toggleSection}
+                        contentId="dashboard-rag-content"
+                        className="card side-panel"
+                        actions={(
                             <button className="button secondary" type="button" onClick={ingestDefaultRag} disabled={ragBusy}>
                                 {ragBusy ? "Processing..." : "Ingest Docs"}
                             </button>
-                        </div>
-                        <form className="inline-form" onSubmit={searchRag}>
-                            <input value={ragQuery} onChange={(event) => setRagQuery(event.target.value)} placeholder="Search retrieval context" />
-                            <button className="button" type="submit" disabled={ragBusy}>
-                                Search
-                            </button>
-                        </form>
+                        )}
+                    >
+                        <RagSearchPanel
+                            ragQuery={ragQuery}
+                            setRagQuery={setRagQuery}
+                            searchRag={searchRag}
+                            ragBusy={ragBusy}
+                            ragResults={ragResults}
+                        />
+                    </CollapsibleCard>
 
-                        <div className="history-list compact-history-list">
-                            {ragResults.length === 0 ? (
-                                <p className="muted-text">Search retrieved knowledge to inspect grounding context.</p>
-                            ) : (
-                                ragResults.map((citation, index) => (
-                                    <article key={`${citation.source}-${index}`} className="history-item">
-                                        <h4>{citation.title}</h4>
-                                        <p>{citation.snippet}</p>
-                                        <small>
-                                            {citation.source_type}: {citation.source}
-                                        </small>
-                                    </article>
-                                ))
-                            )}
-                        </div>
-                    </article>
+                    <CollapsibleCard
+                        sectionKey="marketDemand"
+                        eyebrow="Market Context"
+                        title="Live role demand"
+                        collapsedSections={collapsedSections}
+                        toggleSection={toggleSection}
+                        contentId="dashboard-market-content"
+                        className="card side-panel"
+                    >
+                        <MarketDemandPanel
+                            jobQuery={jobQuery}
+                            setJobQuery={setJobQuery}
+                            loadMarketJobs={loadMarketJobs}
+                            jobs={jobs}
+                        />
+                    </CollapsibleCard>
 
-                    <article className="card side-panel">
-                        <p className="eyebrow">Market Context</p>
-                        <h2>Live role demand</h2>
-                        <form
-                            className="inline-form"
-                            onSubmit={(event) => {
-                                event.preventDefault();
-                                loadMarketJobs(jobQuery);
-                            }}
-                        >
-                            <input value={jobQuery} onChange={(event) => setJobQuery(event.target.value)} placeholder="Search jobs" />
-                            <button className="button" type="submit">
-                                Search
-                            </button>
-                        </form>
-                        <div className="history-list compact-history-list">
-                            {jobs.map((job) => (
-                                <article key={`${job.company}-${job.job_title}`} className="history-item">
-                                    <h4>{job.job_title}</h4>
-                                    <p>
-                                        {job.company} - {job.location}
-                                    </p>
-                                    <small>{job.category}</small>
-                                </article>
-                            ))}
-                        </div>
-                    </article>
-
-                    <article className="card side-panel">
-                        <p className="eyebrow">Profile Context</p>
-                        <h2>Psychometric scoring</h2>
-                        <div className="chat-context-card" style={{ marginBottom: "0.75rem" }}>
-                            <label>
-                                Owner
-                                <select value={ownerType} onChange={(event) => setOwnerType(event.target.value)}>
-                                    <option value="self">For myself</option>
-                                    <option value="on_behalf">On behalf of someone</option>
-                                </select>
-                            </label>
-                            <div className="chat-upload-row">
-                                <input
-                                    type="file"
-                                    multiple
-                                    accept=".txt,.md,.csv,.json,.log"
-                                    onChange={(event) => setUploadFiles(Array.from(event.target.files || []))}
-                                />
-                                <button
-                                    className="button secondary"
-                                    type="button"
-                                    onClick={uploadProfileFiles}
-                                    disabled={uploadBusy || uploadFiles.length === 0}
-                                >
-                                    {uploadBusy ? "Parsing..." : "Parse Profile Files"}
-                                </button>
-                            </div>
-                            {uploadMessage ? <p className="muted-text">{uploadMessage}</p> : null}
-                        </div>
-                        <div className="psychometric-grid">
-                            {Object.keys(psychometric).map((trait) => (
-                                <label key={trait} className="slider-row">
-                                    <span>{trait}</span>
-                                    <input
-                                        type="range"
-                                        min="1"
-                                        max="5"
-                                        value={psychometric[trait]}
-                                        onChange={(event) =>
-                                            setPsychometric((prev) => ({
-                                                ...prev,
-                                                [trait]: Number(event.target.value),
-                                            }))
-                                        }
-                                    />
-                                    <strong>{psychometric[trait]}</strong>
-                                </label>
-                            ))}
-                        </div>
-                        <button className="button" type="button" onClick={scorePsychometric}>
-                            Score Psychometric Profile
-                        </button>
-                        {psychometricResult ? (
-                            <div className="history-list">
-                                <article className="history-item">
-                                    <h4>Top Traits</h4>
-                                    <p>{psychometricResult.top_traits.join(", ")}</p>
-                                </article>
-                                <article className="history-item">
-                                    <h4>Recommended Domains</h4>
-                                    <p>{psychometricResult.recommended_domains.join(", ")}</p>
-                                </article>
-                            </div>
-                        ) : null}
-                    </article>
+                    <CollapsibleCard
+                        sectionKey="psychometric"
+                        eyebrow="Profile Context"
+                        title="Psychometric scoring"
+                        collapsedSections={collapsedSections}
+                        toggleSection={toggleSection}
+                        contentId="dashboard-psychometric-content"
+                        className="card side-panel"
+                    >
+                        <ProfileContextPanel
+                            ownerType={ownerType}
+                            setOwnerType={setOwnerType}
+                            uploadBusy={uploadBusy}
+                            uploadFiles={uploadFiles}
+                            setUploadFiles={setUploadFiles}
+                            uploadProfileFiles={uploadProfileFiles}
+                            uploadMessage={uploadMessage}
+                            psychometric={psychometric}
+                            setPsychometric={setPsychometric}
+                            scorePsychometric={scorePsychometric}
+                            psychometricResult={psychometricResult}
+                        />
+                    </CollapsibleCard>
                 </aside>
             </section>
+
+            <ConfirmModal
+                open={Boolean(pendingRecommendationClearTarget)}
+                title="Confirm Clear"
+                message={pendingRecommendationClearTarget === "backend"
+                    ? "Confirm clear of saved recommendation history from backend?"
+                    : "Confirm clear of recommendation results visible in this dashboard?"}
+                confirmLabel="Confirm Clear"
+                onConfirm={confirmRecommendationClear}
+                onCancel={() => setPendingRecommendationClearTarget(null)}
+            />
         </section>
     );
 }

@@ -11,6 +11,10 @@ from datetime import datetime, timezone
 from typing import Any
 
 from app.database.mongo_db import get_user_profile_collection
+from app.utils.logger import get_logger
+
+
+logger = get_logger(__name__)
 
 # In-memory fallback keeps chat personalization alive in tests or when MongoDB is temporarily unavailable.
 _profile_fallback: dict[str, dict[str, Any]] = {}
@@ -123,6 +127,7 @@ async def get_user_profile(user_id: str) -> dict[str, Any]:
 		return document
 	except Exception:
 		# Swallow storage errors here so chat routing does not fail on a missing MongoDB instance.
+		logger.exception("Failed to load user profile from MongoDB for user_id=%s", user_id)
 		return _profile_fallback.get(user_id, {})
 
 
@@ -158,6 +163,7 @@ async def update_user_profile(
 		await collection.update_one({"user_id": user_id}, {"$set": document}, upsert=True)
 	except Exception:
 		# Tests and local development can operate without Mongo because the fallback cache mirrors the stored shape.
+		logger.exception("Failed to persist user profile to MongoDB for user_id=%s", user_id)
 		_profile_fallback[user_id] = document
 	return document
 
@@ -200,5 +206,6 @@ async def apply_profile_patch(user_id: str, patch: dict[str, Any]) -> dict[str, 
 		collection = get_user_profile_collection()
 		await collection.update_one({"user_id": user_id}, {"$set": document}, upsert=True)
 	except Exception:
+		logger.exception("Failed to apply profile patch in MongoDB for user_id=%s", user_id)
 		_profile_fallback[user_id] = document
 	return document

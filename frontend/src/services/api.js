@@ -4,7 +4,8 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api/
 
 export const apiClient = axios.create({
     baseURL: API_BASE_URL,
-    timeout: 10000,
+    // Chat requests can take longer when RAG + local LLM are enabled.
+    timeout: 60000,
     headers: {
         "Content-Type": "application/json",
     },

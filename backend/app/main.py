@@ -8,6 +8,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import api_router
 from app.config import settings
 from app.database.postgres_db import init_db
+from app.utils.logger import get_logger
+
+
+logger = get_logger(__name__)
 
 
 def create_app() -> FastAPI:
@@ -19,7 +23,7 @@ def create_app() -> FastAPI:
 			init_db()
 		except Exception:
 			# Keep startup alive if local DB is not available yet.
-			pass
+			logger.exception("Database initialization failed during startup")
 		yield
 
 	app = FastAPI(

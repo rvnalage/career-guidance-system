@@ -17,10 +17,12 @@ from app.schemas.recommendation import (
 )
 from app.database.mongo_db import get_feedback_collection, get_recommendation_collection
 from app.utils.constants import CAREER_PATHS, EDUCATION_ORDER
+from app.utils.logger import get_logger
 from app.xai.explainer import explain_recommendation
 
 _recommendation_fallback: dict[str, list[dict]] = {}
 _feedback_fallback: dict[str, list[dict]] = {}
+logger = get_logger(__name__)
 
 
 def _normalize(items: list[str]) -> set[str]:
@@ -119,6 +121,7 @@ async def get_personalization_profile(user_id: str) -> dict[str, dict]:
 		for item in feedback_items:
 			item.pop("_id", None)
 	except Exception:
+		logger.exception("Failed to load recommendation feedback for user_id=%s", user_id)
 		feedback_items = _feedback_fallback.get(user_id, [])
 
 	if not feedback_items:
@@ -233,6 +236,7 @@ async def save_recommendation_snapshot(user_id: str, recommendations: list[Caree
 		collection = get_recommendation_collection()
 		await collection.insert_one(document)
 	except Exception:
+		logger.exception("Failed to save recommendation snapshot for user_id=%s", user_id)
 		_recommendation_fallback.setdefault(user_id, []).append(document)
 	return document
 
@@ -247,6 +251,7 @@ async def get_recommendation_history(user_id: str, limit: int = 10) -> list[dict
 			item.pop("_id", None)
 		return documents
 	except Exception:
+		logger.exception("Failed to load recommendation history for user_id=%s", user_id)
 		return list(reversed(_recommendation_fallback.get(user_id, [])[-limit:]))
 
 
@@ -258,6 +263,7 @@ async def clear_recommendation_history(user_id: str) -> int:
 		result = await collection.delete_many({"user_id": user_id})
 		deleted_count = int(result.deleted_count)
 	except Exception:
+		logger.exception("Failed to clear recommendation history for user_id=%s", user_id)
 		deleted_count = len(_recommendation_fallback.get(user_id, []))
 
 	_recommendation_fallback[user_id] = []
@@ -278,5 +284,6 @@ async def save_recommendation_feedback(user_id: str, payload: RecommendationFeed
 		collection = get_feedback_collection()
 		await collection.insert_one(document)
 	except Exception:
+		logger.exception("Failed to save recommendation feedback for user_id=%s", user_id)
 		_feedback_fallback.setdefault(user_id, []).append(document)
 	return document
