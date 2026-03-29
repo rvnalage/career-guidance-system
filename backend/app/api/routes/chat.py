@@ -51,15 +51,16 @@ async def send_message(payload: ChatRequest) -> ChatResponse:
 	# RAG is computed independently from the agent so the response can stay grounded even when the LLM is disabled.
 	rag_context = build_rag_context(payload.message)
 	rag_citations = get_rag_citations(payload.message)
-	augmented_reply = reply
+	base_reply = reply
+	augmented_reply = base_reply
 	if rag_context:
-		augmented_reply = f"{reply}\n\nRelevant references:\n{rag_context}"
+		augmented_reply = f"{base_reply}\n\nRelevant references:\n{rag_context}"
 	profile_summary = summarize_profile(profile)
-	# The LLM only refines the agent response; if it is unavailable, the deterministic agent reply is returned as-is.
+	# Pass only the agent reply here; rag_context is already sent separately so we avoid duplicating retrieval text.
 	enhanced_reply = generate_llm_reply(
 		message=payload.message,
 		intent=intent,
-		base_reply=augmented_reply,
+		base_reply=base_reply,
 		next_step=next_step,
 		rag_context=rag_context,
 		intent_confidence=confidence,
@@ -116,14 +117,15 @@ async def send_message_me(
 	)
 	rag_context = build_rag_context(payload.message)
 	rag_citations = get_rag_citations(payload.message)
-	augmented_reply = reply
+	base_reply = reply
+	augmented_reply = base_reply
 	if rag_context:
-		augmented_reply = f"{reply}\n\nRelevant references:\n{rag_context}"
+		augmented_reply = f"{base_reply}\n\nRelevant references:\n{rag_context}"
 	profile_summary = summarize_profile(profile)
 	enhanced_reply = generate_llm_reply(
 		message=payload.message,
 		intent=intent,
-		base_reply=augmented_reply,
+		base_reply=base_reply,
 		next_step=next_step,
 		rag_context=rag_context,
 		intent_confidence=confidence,
