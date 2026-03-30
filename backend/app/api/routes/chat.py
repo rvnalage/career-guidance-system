@@ -4,6 +4,7 @@ This module coordinates the full chat pipeline: history persistence, profile-mem
 merge, intent routing, RAG grounding, optional LLM refinement, and profile updates.
 """
 
+from time import perf_counter
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -13,7 +14,7 @@ from app.dependencies import get_current_user
 from app.schemas.chat import ChatMeRequest, ChatRequest, ChatResponse
 from app.services.agent_service import get_agent_response_with_confidence
 from app.services.history_service import append_message
-from app.services.llm_service import generate_llm_reply
+from app.services.llm_service import generate_llm_reply, limit_sentences
 from app.services.profile_service import (
 	get_user_profile,
 	merge_context_with_profile,
@@ -23,6 +24,7 @@ from app.services.profile_service import (
 from app.services.rag_service import build_rag_context, get_rag_citations
 from app.services.psychometric_service import save_user_psychometric_profile
 from app.schemas.psychometric import PsychometricRequest
+from app.config import settings
 
 router = APIRouter()
 
@@ -30,6 +32,7 @@ router = APIRouter()
 @router.post("/message", response_model=ChatResponse)
 async def send_message(payload: ChatRequest) -> ChatResponse:
 	"""Process an anonymous chat message and return a grounded assistant response."""
+	start_time = perf_counter()
 	base_context = dict(payload.context or {})
 	if payload.skills:
 		base_context["skills"] = payload.skills
@@ -68,8 +71,25 @@ async def send_message(payload: ChatRequest) -> ChatResponse:
 		user_profile_summary=profile_summary,
 	)
 	final_reply = enhanced_reply or augmented_reply
+	final_reply = limit_sentences(final_reply, settings.chat_reply_max_sentences)
+	llm_used = enhanced_reply is not None
+	response_source = "agent"
+	if rag_context:
+		response_source = "agent_rag_llm" if llm_used else "agent_rag"
+	response_time_ms = int((perf_counter() - start_time) * 1000)
 
-	await append_message(payload.user_id, "assistant", f"[{intent}] {final_reply}")
+	await append_message(
+		payload.user_id,
+		"assistant",
+		f"[{intent}] {final_reply}",
+		metadata={
+			"suggested_next_step": next_step,
+			"rag_citations": rag_citations,
+			"response_source": response_source,
+			"llm_used": llm_used,
+			"response_time_ms": response_time_ms,
+		},
+	)
 	# Update profile after the turn so future requests can reuse extracted skills, interests, and role hints.
 	if payload.context_owner_type == "self":
 		await update_user_profile(
@@ -89,6 +109,9 @@ async def send_message(payload: ChatRequest) -> ChatResponse:
 		suggested_next_step=next_step,
 		rag_context=rag_context,
 		rag_citations=rag_citations,
+		response_source=response_source,
+		llm_used=llm_used,
+		response_time_ms=response_time_ms,
 	)
 
 
@@ -98,6 +121,7 @@ async def send_message_me(
 	current_user: Annotated[User, Depends(get_current_user)],
 ) -> ChatResponse:
 	"""Process an authenticated chat message using the user identity from JWT state."""
+	start_time = perf_counter()
 	base_context = dict(payload.context or {})
 	if payload.skills:
 		base_context["skills"] = payload.skills
@@ -133,8 +157,25 @@ async def send_message_me(
 		user_profile_summary=profile_summary,
 	)
 	final_reply = enhanced_reply or augmented_reply
+	final_reply = limit_sentences(final_reply, settings.chat_reply_max_sentences)
+	llm_used = enhanced_reply is not None
+	response_source = "agent"
+	if rag_context:
+		response_source = "agent_rag_llm" if llm_used else "agent_rag"
+	response_time_ms = int((perf_counter() - start_time) * 1000)
 
-	await append_message(current_user.id, "assistant", f"[{intent}] {final_reply}")
+	await append_message(
+		current_user.id,
+		"assistant",
+		f"[{intent}] {final_reply}",
+		metadata={
+			"suggested_next_step": next_step,
+			"rag_citations": rag_citations,
+			"response_source": response_source,
+			"llm_used": llm_used,
+			"response_time_ms": response_time_ms,
+		},
+	)
 	if payload.context_owner_type == "self":
 		await update_user_profile(
 			user_id=current_user.id,
@@ -153,4 +194,7 @@ async def send_message_me(
 		suggested_next_step=next_step,
 		rag_context=rag_context,
 		rag_citations=rag_citations,
+		response_source=response_source,
+		llm_used=llm_used,
+		response_time_ms=response_time_ms,
 	)

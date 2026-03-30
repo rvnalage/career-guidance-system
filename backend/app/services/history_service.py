@@ -8,7 +8,12 @@ from app.database.mongo_db import get_history_collection
 _history_fallback: dict[str, list[dict[str, Any]]] = {}
 
 
-async def append_message(user_id: str, role: str, text: str) -> None:
+async def append_message(
+	user_id: str,
+	role: str,
+	text: str,
+	metadata: dict[str, Any] | None = None,
+) -> None:
 	"""Append a chat turn to persistent history or the fallback cache."""
 	document = {
 		"user_id": user_id,
@@ -16,6 +21,8 @@ async def append_message(user_id: str, role: str, text: str) -> None:
 		"text": text,
 		"timestamp": datetime.now(timezone.utc).isoformat(),
 	}
+	if metadata:
+		document.update(metadata)
 	try:
 		collection = get_history_collection()
 		await collection.insert_one(document)

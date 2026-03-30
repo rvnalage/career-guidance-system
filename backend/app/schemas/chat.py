@@ -30,3 +30,6 @@ class ChatResponse(BaseModel):
 	suggested_next_step: str
 	rag_context: str = ""
 	rag_citations: list[dict[str, Any]] = Field(default_factory=list)
+	response_source: Literal["agent", "agent_rag", "agent_rag_llm"] = "agent"
+	llm_used: bool = False
+	response_time_ms: int = 0

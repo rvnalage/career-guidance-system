@@ -2,6 +2,7 @@ import asyncio
 
 from app.database.models import User
 from app.dependencies import get_current_user
+from app.services.llm_service import limit_sentences
 from app.services.profile_service import get_user_profile
 
 
@@ -29,6 +30,10 @@ def test_chat_route_learning_intent(client):
 	assert "relevant references" in body["reply"].lower()
 	assert isinstance(body.get("rag_citations"), list)
 	assert len(body.get("rag_citations", [])) >= 1
+	assert body["response_source"] in {"agent_rag", "agent_rag_llm"}
+	assert isinstance(body["llm_used"], bool)
+	assert isinstance(body["response_time_ms"], int)
+	assert body["response_time_ms"] >= 0
 	assert "plan" in body["suggested_next_step"].lower() or "share" in body["suggested_next_step"].lower()
 
 
@@ -58,6 +63,10 @@ def test_chat_message_me_with_auth(client):
 		body = response.json()
 		assert "reply" in body
 		assert "suggested_next_step" in body
+		assert body["response_source"] in {"agent", "agent_rag", "agent_rag_llm"}
+		assert isinstance(body["llm_used"], bool)
+		assert isinstance(body["response_time_ms"], int)
+		assert body["response_time_ms"] >= 0
 	finally:
 		client.app.dependency_overrides.clear()
 
@@ -124,3 +133,14 @@ def test_chat_message_me_self_persists_profile_fields(client):
 		assert "analytics" in profile.get("interests", [])
 	finally:
 		client.app.dependency_overrides.clear()
+
+
+def test_limit_sentences_preserves_references_section():
+	text = (
+		"Sentence one. Sentence two. Sentence three. Sentence four. Sentence five.\n\n"
+		"Relevant references:\n- Learning Roadmap: Foundations first."
+	)
+	trimmed = limit_sentences(text, 3)
+	assert trimmed.startswith("Sentence one. Sentence two. Sentence three.")
+	assert "Sentence four." not in trimmed
+	assert "Relevant references:" in trimmed

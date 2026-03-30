@@ -54,6 +54,11 @@ function ChatPage({ isAuthenticated, currentUser }) {
                 const history = (response.data.messages || []).map((entry) => ({
                     role: entry.role,
                     text: entry.text,
+                    nextStep: entry.suggested_next_step,
+                    citations: entry.rag_citations || [],
+                    responseSource: entry.response_source,
+                    llmUsed: entry.llm_used,
+                    responseTimeMs: entry.response_time_ms,
                 }));
                 setChat(history);
             } catch (err) {
@@ -94,6 +99,9 @@ function ChatPage({ isAuthenticated, currentUser }) {
                     text: response.data.reply,
                     nextStep: response.data.suggested_next_step,
                     citations: response.data.rag_citations || [],
+                    responseSource: response.data.response_source,
+                    llmUsed: response.data.llm_used,
+                    responseTimeMs: response.data.response_time_ms,
                 },
             ]);
         } catch (err) {
@@ -149,6 +157,14 @@ function ChatPage({ isAuthenticated, currentUser }) {
                 {chat.map((entry, index) => (
                     <article key={`${entry.role}-${index}`} className={`chat-bubble ${entry.role}`}>
                         <p>{entry.text}</p>
+                        {entry.responseSource ? (
+                            <small>
+                                Source: {entry.responseSource}
+                                {typeof entry.llmUsed === "boolean" ? ` | LLM used: ${entry.llmUsed ? "yes" : "no"}` : ""}
+                                {typeof entry.responseTimeMs === "number" ? ` | Time: ${entry.responseTimeMs} ms` : ""}
+                            </small>
+                        ) : null}
+                        {entry.responseSource && entry.nextStep ? <br /> : null}
                         {entry.nextStep ? <small>Next: {entry.nextStep}</small> : null}
                         {entry.citations?.length ? (
                             <div className="citation-block">

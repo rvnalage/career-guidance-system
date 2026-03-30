@@ -2,15 +2,20 @@
 
 import json
 from functools import lru_cache
+from pathlib import Path
 from typing import Annotated, List
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
+BASE_DIR = Path(__file__).resolve().parent.parent
+ENV_FILE = BASE_DIR / ".env"
+
+
 class Settings(BaseSettings):
 	"""Typed runtime configuration for API, storage, retrieval, and authentication behavior."""
-	model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+	model_config = SettingsConfigDict(env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore")
 
 	app_name: str = "Career Guidance System API"
 	app_version: str = "0.1.0"
@@ -44,6 +49,7 @@ class Settings(BaseSettings):
 	llm_finetuned_model: str = Field(default="", alias="LLM_FINETUNED_MODEL")
 	llm_request_timeout_seconds: int = Field(default=15, alias="LLM_REQUEST_TIMEOUT_SECONDS")
 	llm_require_rag_context: bool = Field(default=True, alias="LLM_REQUIRE_RAG_CONTEXT")
+	chat_reply_max_sentences: int = Field(default=8, alias="CHAT_REPLY_MAX_SENTENCES")
 	intent_min_confidence: float = Field(default=0.35, alias="INTENT_MIN_CONFIDENCE")
 
 	jwt_secret_key: str = "change-me-in-production"

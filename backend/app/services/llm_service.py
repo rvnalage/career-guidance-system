@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Optional
 
 import requests
+from requests.exceptions import ReadTimeout
 
 from app.config import settings
 from app.utils.logger import get_logger
@@ -18,8 +19,7 @@ logger = get_logger(__name__)
 
 
 SYSTEM_PROMPT = (
-	"You are an expert career guidance assistant for MTech students. "
-	"Give practical, concise guidance with clear next actions."
+	"You are a concise career guidance assistant for MTech students."
 )
 
 INTENT_PROMPT_GUIDANCE = {
@@ -32,15 +32,30 @@ INTENT_PROMPT_GUIDANCE = {
 	"career_assessment": "Ask clarifying questions and guide to role-fit decision matrix when uncertain.",
 }
 
-INTENT_FEW_SHOT = {
-	"learning_path": "Example style: Week 1-2 foundations, Week 3-5 build project, Week 6-8 portfolio and interview prep.",
-	"interview_prep": "Example style: 10-question mock set + revision tracker + final timed mock.",
-	"job_matching": "Example style: shortlist 15 jobs into stretch/realistic/safe and close top 3 skill gaps.",
-	"networking": "Example style: optimize headline, send 5 tailored outreaches/week, track reply conversion.",
-	"recommendation": "Example style: top 3 roles with confidence and feature contributions.",
-	"feedback": "Example style: role + helpful flag + rating + tags for personalization update.",
-	"career_assessment": "Example style: strengths, interests, constraints, then select primary and backup path.",
-}
+def limit_sentences(text: str, max_sentences: int) -> str:
+	"""Trim prose to at most max_sentences while preserving trailing non-prose sections."""
+	if max_sentences <= 0:
+		return text.strip()
+
+	marker = "\n\nRelevant references:\n"
+	main_text, separator, trailing = text.partition(marker)
+	main_text = main_text.strip()
+	if not main_text:
+		return text.strip()
+
+	sentence_count = 0
+	last_end = 0
+	for index, char in enumerate(main_text):
+		if char in ".!?" and (index + 1 == len(main_text) or main_text[index + 1].isspace()):
+			sentence_count += 1
+			last_end = index + 1
+			if sentence_count >= max_sentences:
+				break
+
+	trimmed_main = main_text if sentence_count < max_sentences else main_text[:last_end].strip()
+	if separator:
+		return f"{trimmed_main}{marker}{trailing.strip()}".strip()
+	return trimmed_main
 
 
 def _active_model_name() -> str:
@@ -78,26 +93,23 @@ def _build_prompt(
 	"""Build a grounded prompt that constrains the LLM to retrieved and deterministic guidance."""
 	rag_section = rag_context.strip() or "No retrieved context."
 	intent_guidance = INTENT_PROMPT_GUIDANCE.get(intent, "Keep response concise and actionable.")
-	few_shot = INTENT_FEW_SHOT.get(intent, "")
 	matches_text = ", ".join(keyword_matches) if keyword_matches else "none"
 	# The prompt is structured so the LLM acts as a grounded rewriter, not as an unconstrained generator.
 	return (
 		f"System: {SYSTEM_PROMPT}\n"
-		"Use only the retrieved context and base guidance below as source-of-truth. "
-		"Never invent tools, jobs, certifications, universities, timelines, salaries, or guarantees.\n"
-		"If retrieved context is insufficient, preserve the base guidance without adding new claims.\n"
-		"Keep guidance actionable, concise, and safe.\n"
+		"Use only the retrieved context and base guidance as source-of-truth.\n"
+		"Do not invent facts.\n"
+		f"Reply in at most {settings.chat_reply_max_sentences} short sentences.\n"
 		f"Intent-specific guidance: {intent_guidance}\n"
-		f"Few-shot style cue: {few_shot}\n"
 		f"Detected intent: {intent}\n"
 		f"Intent confidence: {intent_confidence}\n"
-		f"Matched intent keywords: {matches_text}\n"
-		f"User profile memory: {user_profile_summary}\n"
 		f"User message: {message}\n"
-		f"Retrieved context:\n{rag_section}\n"
+		f"Matched keywords: {matches_text}\n"
+		f"Profile: {user_profile_summary}\n"
+		f"Retrieved context: {rag_section}\n"
 		f"Base guidance: {base_reply}\n"
-		f"Suggested next step: {next_step}\n"
-		"Return only the improved assistant reply in plain text."
+		f"Next step: {next_step}\n"
+		"Return only the final reply text."
 	)
 
 
@@ -135,19 +147,30 @@ def generate_llm_reply(
 			user_profile_summary,
 		),
 		"stream": False,
+		"keep_alive": "10m",
+		"options": {
+			"num_predict": 160,
+		},
 	}
 
 	try:
 		response = requests.post(
 			url,
 			json=payload,
-			timeout=settings.llm_request_timeout_seconds,
+			timeout=(5, settings.llm_request_timeout_seconds),
 		)
 		response.raise_for_status()
 		data = response.json()
 		llm_text = str(data.get("response", "")).strip()
-		return llm_text or None
+		return limit_sentences(llm_text, settings.chat_reply_max_sentences) or None
+	except ReadTimeout:
+		logger.warning(
+			"Ollama request timed out after %s seconds for model=%s",
+			settings.llm_request_timeout_seconds,
+			_active_model_name(),
+		)
+		return None
 	except Exception:
 		# Keep chat resilient even when the local Ollama service is missing, down, or returns malformed data.
-		logger.exception("LLM refinement request failed")
+		logger.warning("LLM refinement request failed", exc_info=True)
 		return None
