@@ -10,6 +10,7 @@ Agentic AI-driven career guidance platform with secure user accounts, personaliz
 - Career recommendation engine (skills + interests + education scoring)
 - Feedback-learning personalization (Helpful/Not Helpful + rating/tags)
 - Psychometric scoring with persisted user profile (`/psychometric/score/me`, `/psychometric/profile/me`)
+- Profile intake from uploaded text files with self/on-behalf persistence modes (`/profile-intake/upload`)
 - Recommendation explainability panel (SHAP/LIME with safe fallback)
 - Real-time job market API integration with resilient fallback
 - Recommendation history with clear-history support
@@ -51,6 +52,7 @@ career-guidance-system/
 - `MONGODB_RECOMMENDATION_COLLECTION`
 - `MONGODB_FEEDBACK_COLLECTION`
 - `MONGODB_PSYCHOMETRIC_COLLECTION`
+- `MONGODB_USER_PROFILE_COLLECTION`
 - `JWT_SECRET_KEY`
 - `ACCESS_TOKEN_EXPIRE_MINUTES`
 - `JOB_MARKET_API_URL`
@@ -60,7 +62,7 @@ career-guidance-system/
 - `LLM_ENABLED` (set `true` to enable local LLaMA responses)
 - `LLM_PROVIDER` (currently `ollama`)
 - `LLM_BASE_URL` (default `http://localhost:11434`)
-- `LLM_MODEL` (example `llama3.1:8b`)
+- `LLM_MODEL` (example `tinyllama:latest` in template, `llama3.1:8b` in code defaults)
 - `LLM_FINETUNED_MODEL` (optional, overrides base model when set)
 - `LLM_REQUEST_TIMEOUT_SECONDS`
 - `LLM_REQUIRE_RAG_CONTEXT` (if `true`, LLM enhancement runs only when RAG context exists)
@@ -108,6 +110,9 @@ npm run dev
 
 Base prefix: `/api/v1`
 
+- System
+  - `GET /`
+  - `GET /health`
 - Auth
   - `POST /auth/register`
   - `POST /auth/login`
@@ -117,7 +122,7 @@ Base prefix: `/api/v1`
 - Chat
   - `POST /chat/message` (guest/public payload includes `user_id`)
   - `POST /chat/message/me` (authenticated)
-  - Responses include `rag_context` and `rag_citations`
+  - Responses include `rag_context`, `rag_citations`, `response_source`, `llm_used`, and `response_time_ms`
 - History
   - `GET /history/me`
   - `DELETE /history/me`
@@ -132,6 +137,8 @@ Base prefix: `/api/v1`
   - `POST /psychometric/score` (public scoring)
   - `POST /psychometric/score/me` (authenticated + persisted)
   - `GET /psychometric/profile/me`
+- Profile Intake
+  - `POST /profile-intake/upload` (multipart upload; authenticated)
 - Market
   - `GET /market/jobs`
 - LLM
@@ -165,13 +172,13 @@ Base prefix: `/api/v1`
 From `backend/`:
 
 ```bash
-python -m pytest -q tests/test_auth.py tests/test_chat.py tests/test_rag.py
+python -m pytest -q tests/test_auth.py tests/test_chat.py tests/test_rag.py tests/test_profile_intake.py
 ```
 
 Full focused suite used during implementation:
 
 ```bash
-python -m pytest -q tests/test_auth.py tests/test_integration.py tests/test_ml.py tests/test_agents.py tests/test_chat.py tests/test_rag.py
+python -m pytest -q tests/test_auth.py tests/test_integration.py tests/test_ml.py tests/test_agents.py tests/test_chat.py tests/test_rag.py tests/test_profile_intake.py tests/test_xai_explanations.py
 ```
 
 ## XAI Runtime Matrix

@@ -12,19 +12,30 @@ This document maps the target architecture (agent-wise model plan) against the c
 
 | Agent | Target Model / Technique | Target Training Approach | Current Status | Current Implementation | Gap To Close |
 |---|---|---|---|---|---|
-| NLP / Query Processing | Transformer embeddings (BERT, DistilBERT) | Fine-tune intent/entity model on career query dataset | Partial | Rule-based intent router + RAG + optional LLaMA response generation | Add supervised intent classifier training and inference service |
-| User Modeling | Feature embeddings / tabular ML | Train on historical interactions for clustering/preference prediction | Partial | Feedback-weighted personalization profile | Add user feature store + RF/XGBoost/clustering pipeline |
-| Psychometric Analysis | Regression / classification | Learn psychometric to career suitability mapping | Partial | Deterministic trait normalization and domain mapping | Add labeled psychometric-career dataset and trained model endpoint |
-| Recommendation Agent | Hybrid ML + collaborative filtering | Train on profile + outcomes; optimize relevance | Partial | Weighted skills/interests/education scoring + feedback bonus | Add collaborative filtering and offline ranking model training |
-| Feedback & Adaptation Agent | RL / online learning | Use reward signals from acceptance/feedback | Partial | Online weight updates from helpful/rating tags | Add contextual bandit or policy optimization loop |
-| Explainability Agent | SHAP/LIME over trained models | Post-hoc explanations from trained predictors | Partial | SHAP/LIME-style contribution summaries over deterministic scores | Integrate true SHAP/LIME against trained recommendation model |
+| NLP / Query Processing | Transformer embeddings (BERT, DistilBERT) | Fine-tune intent/entity model on career query dataset | Partial | Deterministic keyword intent router with confidence gating; query rewriting + RAG retrieval; optional Ollama-based response refinement | Add supervised intent/entity model training and inference service |
+| User Modeling | Feature embeddings / tabular ML | Train on historical interactions for clustering/preference prediction | Partial | Persistent user profile memory (skills/interests/target_role/intent_counts) with merge/update behavior | Add feature store + clustering/preference modeling pipeline |
+| Psychometric Analysis | Regression / classification | Learn psychometric to career suitability mapping | Partial | Deterministic normalization and trait-to-domain mapping; persisted profile for reuse | Add labeled psychometric-career model and calibration metrics |
+| Recommendation Agent | Hybrid ML + collaborative filtering | Train on profile + outcomes; optimize relevance | Partial | Deterministic weighted scoring (skills/interests/education) + feedback-derived role bonus and dynamic weights | Add collaborative filtering / ranking model and offline evaluation |
+| Feedback & Adaptation Agent | RL / online learning | Use reward signals from acceptance/feedback | Partial | Heuristic online adaptation from helpful/rating/tags into role bonuses and feature weights | Add contextual bandit or policy optimization loop with replay evaluation |
+| Explainability Agent | SHAP/LIME over trained models | Post-hoc explanations from trained predictors | Partial | Runtime SHAP/LIME attempt with deterministic weighted fallback over hand-crafted score features | Integrate explainability over trained recommendation model features |
+
+## Implemented Baseline (v1)
+
+These capabilities are implemented and active in the current codebase:
+
+- Agentic chat pipeline with confidence-gated intent routing
+- RAG ingestion, retrieval, citations, and metadata-aware reranking
+- Optional local LLM post-processing with safe deterministic fallback
+- Recommendation generation, explanation, history, and feedback capture
+- Psychometric scoring + persistence and recommendation enrichment
+- Profile intake upload endpoint for extracting and patching user profile signals
 
 ## Current Strengths
 
 - End-to-end product flow is complete and demo-ready.
 - RAG is active with ingestion, retrieval, and citations.
 - Optional LLaMA integration supports base or fine-tuned model selection.
-- Feedback loop already influences future recommendations.
+- Feedback loop already influences future recommendations via dynamic weights and role bonuses.
 
 ## Technical Evidence (Code Pointers)
 
@@ -39,4 +50,4 @@ This document maps the target architecture (agent-wise model plan) against the c
 
 Use this statement:
 
-"The current system implements a functionally complete hybrid baseline with deterministic recommendation logic, active RAG grounding, and optional LLM narrative generation. Several modules are intentionally staged for phase-2 replacement with trained models (intent classifier, psychometric predictor, collaborative filtering recommender, and true SHAP/LIME explainability over learned models)."
+"The current system implements a functionally complete hybrid baseline with deterministic recommendation logic, active RAG grounding, and optional LLM narrative generation. Several modules are intentionally staged for phase-2 replacement with trained models (intent classifier, psychometric predictor, collaborative filtering recommender, and explainability over learned models)."

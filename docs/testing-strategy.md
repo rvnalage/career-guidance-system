@@ -38,6 +38,7 @@ backend/tests/
 ├── test_ml.py               # Recommendation engine (scoring logic, sort order)
 ├── test_rag.py              # RAG status, ingest, search pipeline
 ├── test_xai_explanations.py # XAI explainer (SHAP/LIME/fallback)
+├── test_profile_intake.py   # Upload parsing and profile-intake endpoint behavior
 ├── test_profile_service.py  # Profile merge and summarize (no I/O)
 └── test_nlp.py              # (placeholder — NLP edge cases can be added here)
 ```
@@ -221,9 +222,7 @@ cd backend
 py -m pytest -q
 ```
 
-Expected output: `45 passed, 32 warnings`
-
-The 32 warnings come from `httpx` starlette DeprecationWarning about the `app` shortcut; they are non-blocking.
+Note: total passed test count and warning count may vary as the suite evolves.
 
 ### Single module
 
@@ -261,6 +260,7 @@ py -m pytest -k "xai or profile" -v
 │                    │ test_auth.py              │             │
 │                    │ test_chat.py              │             │
 │                    │ test_rag.py               │             │
+│                    │ test_profile_intake.py    │             │
 ├────────────────────┼───────────────────────────┼─────────────┤
 │ Service layer      │ test_ml.py                │ No          │
 │                    │ test_profile_service.py   │             │

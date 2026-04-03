@@ -55,8 +55,8 @@ The explainability layer tries three methods in order of fidelity:
 
 | Priority | Method | Condition |
 |----------|--------|-----------|
-| 1 | SHAP `KernelExplainer` | `shap` importable (Python 3.12+) |
-| 2 | LIME `LimeTabularExplainer` | `lime` importable (Python <3.13) |
+| 1 | SHAP `KernelExplainer` | `shap` importable |
+| 2 | LIME `LimeTabularExplainer` | `lime` importable |
 | 3 | Weighted dot product | Always available |
 
 All three produce the same output shape: `list[tuple[str, float]]` — one (feature, contribution) pair per feature. This means downstream consumers (`recommendation_service`, the API response schema) do not need to know which method was used.
@@ -74,14 +74,18 @@ The in-memory fallback dict (`_profile_fallback`) ensures profile operations nev
 
 ### 2.6 Per-Intent LLM Prompting
 
-Rather than a single generic prompt, the LLM receives intent-specific guidance and a few-shot style cue:
+Rather than a single generic prompt, the LLM receives intent-specific guidance and runtime context:
 
 | What | Purpose |
 |------|---------|
 | `INTENT_PROMPT_GUIDANCE[intent]` | Shapes the format and focus (e.g., phased roadmap for `learning_path`) |
-| `INTENT_FEW_SHOT[intent]` | Provides a compact example of the expected output style |
 | `intent_confidence` | Lets the LLM weight its response when routing confidence was borderline |
+| `keyword_matches` | Exposes matched routing keywords to keep LLM phrasing aligned with classifier signal |
 | `user_profile_summary` | Single-line compact profile recap injected into context window |
+
+Implementation note:
+- `LLM_REQUIRE_RAG_CONTEXT=true` prevents LLM calls when retrieval returns no context.
+- The LLM acts as a post-processor over agent output, and route handlers always fall back safely to deterministic agent responses.
 
 ---
 
@@ -179,14 +183,14 @@ Recommendations are scored with a linear confidence model over four features:
 
 | Feature | Source | Weight (default) |
 |---------|--------|-----------------|
-| `skill_match` | `len(user_skills ∩ role_skills) / len(role_skills)` | 0.40 |
-| `interest_match` | `len(user_interests ∩ role_domains) / len(role_domains)` | 0.30 |
-| `education_fit` | Ordinal: PhD=1.0, Masters=0.8, Bachelors=0.6, Other=0.4 | 0.20 |
-| `personalization_bonus` | Psychometric domain overlap — 0.05 per matched domain, max 0.1 | 0.10 |
+| `skill_match` | `len(user_skills ∩ role_skills) / len(role_skills)` | 0.50 (profile-adjustable) |
+| `interest_match` | `len(user_interests ∩ role_domains) / len(role_domains)` | 0.30 (profile-adjustable) |
+| `education_fit` | Tiered fit score derived from user and role minimum education | 0.20 (profile-adjustable) |
+| `personalization_bonus` | Role-specific feedback bonus learned from user rating/helpful signals | [-0.20, +0.20] additive |
 
-`confidence = sum(feature_value × weight)` capped at 1.0.
+`confidence = sum(feature_value × weight) + personalization_bonus`, clamped to `[0.0, 1.0]`.
 
-Any role scoring above 0.5 is included in the recommendation set. Results are sorted by confidence descending and capped at top 5.
+Results are sorted by confidence descending; API currently returns top 3 recommendations by default.
 
 ### 4.2 Role Knowledge Base
 
@@ -194,7 +198,7 @@ The system contains an internal role catalogue mapping each career to required s
 
 ### 4.3 Psychometric Enrichment
 
-When a user submits `POST /psychometric/score/me`, their `recommended_domains` are stored in `psychometric_profiles`. Before generating recommendations, `_enrich_interests_with_psychometric` merges these domains into the request's `interests` list, boosting cross-domain matches.
+When a user submits `POST /psychometric/score/me`, their `recommended_domains` are stored in `psychometric_profiles`. Before generating recommendations, `_enrich_interests_with_psychometric` merges these domains into the request's `interests` list. This influences `interest_match` indirectly (there is no direct psychometric numeric feature in scoring).
 
 ---
 
@@ -202,12 +206,16 @@ When a user submits `POST /psychometric/score/me`, their `recommended_domains` a
 
 ### 5.1 Ingestion
 
-`RagIngester` reads `.txt` files from `one_note_extract/`. Each file is chunked into paragraphs. Each chunk receives metadata inferred from filename and content:
-- `source_type`: `career_path`, `study_doc`, `strategy`, etc.
-- `topic`: File-level topic (e.g., `ml_engineer`, `interview_preparation`)
-- `min_education`: Detected from text patterns (`BTech`, `MTech`, `PhD`)
+Document ingestion reads `.txt` files from `one_note_extract/` (default) or a caller-supplied directory path. Each file is split into overlapping chunks. Each ingested chunk currently uses:
+- `source_type`: `document`
+- `metadata.topic`: `document`
+- `metadata.file_name`: source filename
+- `metadata.chunk_index`: chunk position within file
 
-Quality filter: chunks shorter than 50 characters are discarded.
+Quality filters:
+- chunks with normalized length < 80 are dropped
+- chunks with alphanumeric ratio < 0.65 are dropped
+- near-duplicate chunks are skipped using a token fingerprint
 
 ### 5.2 Vector Store
 
@@ -222,13 +230,15 @@ For production scale, this can be swapped out for a persistent vector DB (e.g., 
 
 Two-phase retrieval:
 1. **Vector pass**: retrieve `candidate_pool_size` (default 20) candidates by cosine similarity.
-2. **Re-rank**: combine vector score + lexical overlap score (0.1 per token match) + metadata score (0.15 per metadata token match).
+2. **Re-rank**: combine vector score + lexical overlap score (0.1 per token match) + metadata overlap score (0.15 per metadata token match).
+
+Optional metadata filters (`source_type`, `topic`, `min_education`) are applied when provided by API callers. The system can also infer coarse filters from query text (for example, interview/learning hints).
 
 Return top `RAG_TOP_K` (default 4) after re-ranking.
 
 ### 5.4 Query Rewriting
 
-Before retrieval, queries are rewritten: acronyms are expanded (`nlp → natural language processing`), synonyms are added, role abbreviations are resolved. This improves recall for informal student queries.
+Before retrieval, queries are rewritten using deterministic synonym replacement (for example, `ml → machine learning`, `mtech → master`, `cv → portfolio`, `job prep → interview preparation`). This improves recall for informal student queries while keeping retrieval behavior predictable.
 
 ---
 
@@ -253,7 +263,7 @@ Token expires               →  client must re-login
 
 ### 6.3 Open vs Protected Endpoints
 
-Endpoints with `/me` suffix always require authentication. Anonymous endpoints (e.g., `POST /chat/message`, `GET /market/jobs`) allow exploration without an account. This design enables both demo usage and authenticated personalisation.
+Endpoints with `/me` suffix always require authentication. Some endpoints without `/me` are still protected by design (notably `POST /profile-intake/upload`). Anonymous endpoints such as `POST /chat/message`, `GET /market/jobs`, RAG read/admin endpoints, and `POST /psychometric/score` allow exploration without an account.
 
 ---
 
@@ -267,7 +277,7 @@ Endpoints with `/me` suffix always require authentication. Anonymous endpoints (
 | Expired / invalid JWT | 401 Unauthorized | FastAPI `HTTPBearer` dependency |
 | MongoDB unavailable | Graceful degradation | `_profile_fallback` dict used; no 500 raised |
 | LLM unavailable / timeout | Graceful degradation | `generate_llm_reply` returns `None`; agent reply used |
-| External job API failure | Graceful degradation | `market_service` returns empty results with `source="cache"` |
+| External job API failure | Graceful degradation | `market_service` returns deterministic fallback jobs with `source="fallback"` |
 | RAG store empty | Returns empty citations | `rag_service` returns `""` / `[]` safely |
 
 ---

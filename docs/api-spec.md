@@ -9,6 +9,7 @@
 ## Conventions
 
 - All request and response bodies are `application/json`.
+- `POST /profile-intake/upload` uses `multipart/form-data`.
 - Authenticated endpoints are marked with 🔒.
 - Timestamps follow ISO-8601 format.
 - Error responses use FastAPI's default `{ "detail": "<message>" }` shape.
@@ -152,10 +153,21 @@ Send a chat message as an anonymous user (no JWT required).
 {
   "user_id": "anonymous-session-abc123",
   "message": "I want to become a data scientist, what should I learn?",
+  "context_owner_type": "self",
   "context": {
     "target_role": "data scientist",
     "skills": ["python", "sql"],
     "interests": ["machine learning"]
+  },
+  "skills": ["python", "sql"],
+  "interests": ["machine learning"],
+  "education_level": "Masters",
+  "psychometric_dimensions": {
+    "openness": 4,
+    "conscientiousness": 5,
+    "extraversion": 3,
+    "agreeableness": 4,
+    "neuroticism": 2
   }
 }
 ```
@@ -164,7 +176,12 @@ Send a chat message as an anonymous user (no JWT required).
 |-------|------|----------|-------|
 | `user_id` | string | ✓ | Any string identifier for the session |
 | `message` | string | ✓ | The user's question or message |
+| `context_owner_type` | string | — | `self` or `on_behalf` (default `self`) |
 | `context` | object | — | Optional structured context |
+| `skills` | string[] | — | Optional shortcut list merged into context |
+| `interests` | string[] | — | Optional shortcut list merged into context |
+| `education_level` | string | — | Optional education signal |
+| `psychometric_dimensions` | object | — | Optional Big Five-style numeric map |
 
 **Context object fields** (all optional)
 
@@ -180,6 +197,9 @@ Send a chat message as an anonymous user (no JWT required).
   "reply": "To become a data scientist, start with Python basics and statistics...",
   "suggested_next_step": "Share your current skills and preferred domain to get a personalised roadmap.",
   "rag_context": "From ml_roadmap.txt: Python, SQL and statistics form the core foundation...",
+  "response_source": "agent_rag_llm",
+  "llm_used": true,
+  "response_time_ms": 143,
   "rag_citations": [
     {
       "title": "ML Roadmap",
@@ -197,6 +217,9 @@ Send a chat message as an anonymous user (no JWT required).
 | `reply` | string | The agent (and optionally LLM-enhanced) response |
 | `suggested_next_step` | string | Prompt to guide the user's next action |
 | `rag_context` | string | Raw retrieved context appended to reply (may be `""`) |
+| `response_source` | string | One of: `agent`, `agent_rag`, `agent_rag_llm` |
+| `llm_used` | boolean | Whether LLM refinement contributed to final response |
+| `response_time_ms` | int | End-to-end route processing time in milliseconds |
 | `rag_citations` | object[] | List of source chunks used for retrieval |
 
 ---
@@ -209,10 +232,12 @@ Send a chat message as the authenticated user. User ID is derived from the JWT; 
 ```json
 {
   "message": "Suggest me the best career path given my background.",
+  "context_owner_type": "self",
   "context": {
     "skills": ["python", "machine learning"],
     "interests": ["nlp", "research"]
-  }
+  },
+  "education_level": "Masters"
 }
 ```
 
@@ -460,7 +485,48 @@ Retrieve the stored psychometric profile.
 
 ---
 
-## 7. History — `/api/v1/history` 🔒
+## 7. Profile Intake — `/api/v1/profile-intake` 🔒
+
+### `POST /profile-intake/upload` 🔒
+
+Upload text files and extract profile signals (skills, interests, target role, education, psychometric dimensions).
+
+This endpoint uses `multipart/form-data`.
+
+**Form fields**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `files` | file[] | ✓ | Supported extensions are plain-text formats handled by backend parser |
+| `owner_type` | string | — | `self` (default) persists to caller profile; `on_behalf` returns extracted data without saving |
+
+**Response `200`**
+```json
+{
+  "owner_type": "self",
+  "files_processed": 2,
+  "skipped_files": ["resume.pdf"],
+  "extracted_profile": {
+    "skills": ["python", "sql"],
+    "interests": ["data analysis"],
+    "target_role": "data scientist",
+    "education_level": "Masters",
+    "psychometric_dimensions": {
+      "openness": 4,
+      "conscientiousness": 5,
+      "extraversion": 3,
+      "agreeableness": 4,
+      "neuroticism": 2
+    }
+  },
+  "persisted_to_user_profile": true,
+  "message": "Profile updated from uploaded files"
+}
+```
+
+---
+
+## 8. History — `/api/v1/history` 🔒
 
 ### `GET /history/me` 🔒
 
@@ -502,7 +568,7 @@ Clear the authenticated user's chat history.
 
 ---
 
-## 8. Dashboard — `/api/v1/dashboard` 🔒
+## 9. Dashboard — `/api/v1/dashboard` 🔒
 
 ### `GET /dashboard/summary/me` 🔒
 
@@ -548,7 +614,7 @@ Full dashboard report including recent chat and recommendations.
 
 ---
 
-## 9. RAG (Knowledge Base) — `/api/v1/rag`
+## 10. RAG (Knowledge Base) — `/api/v1/rag`
 
 ### `GET /rag/status`
 
@@ -636,7 +702,7 @@ Semantic search over the knowledge base with optional metadata filters.
 
 ---
 
-## 10. Market Data — `/api/v1/market`
+## 11. Market Data — `/api/v1/market`
 
 ### `GET /market/jobs`
 
@@ -669,7 +735,7 @@ Fetch live remote job listings from the Remotive API.
 
 ---
 
-## 11. LLM Status — `/api/v1/llm`
+## 12. LLM Status — `/api/v1/llm`
 
 ### `GET /llm/status`
 
@@ -678,20 +744,20 @@ Inspect LLM runtime configuration.
 **Response `200`**
 ```json
 {
-  "enabled": false,
+  "enabled": true,
   "require_rag_context": true,
   "provider": "ollama",
   "base_url": "http://localhost:11434",
-  "base_model": "llama3.1:8b",
+  "base_model": "tinyllama:latest",
   "finetuned_model": "",
-  "active_model": "llama3.1:8b",
+  "active_model": "tinyllama:latest",
   "is_finetuned_active": false
 }
 ```
 
 ---
 
-## 12. Error Response Reference
+## 13. Error Response Reference
 
 All errors use the standard FastAPI error body:
 

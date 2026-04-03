@@ -47,12 +47,20 @@ Expected highlights:
 
 1. In Chat page ask: `Give me a data science career roadmap for MTech student`.
 2. Show response contains practical guidance plus source citations.
-3. Open Dashboard and show `RAG Context And Citations` panel.
-4. Click `Ingest one_note_extract`.
-5. Search retrieval query like `interview preparation data science` and show returned snippets/sources.
-6. Generate recommendations and show explanation panel.
-7. Run psychometric scoring and show top traits.
-8. Show market jobs panel and report export.
+3. Open Dashboard and show summary, recommendation, and explanation panels.
+4. Run psychometric scoring and show top traits.
+5. Show market jobs panel and report export.
+6. Trigger profile intake upload with JWT auth:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/profile-intake/upload \\
+	-H "Authorization: Bearer <JWT_TOKEN>" \\
+	-F "owner_type=self" \\
+	-F "files=@../one_note_extract/ml_roadmap.txt"
+```
+
+7. Open Chat again and show profile-aware response continuity.
+8. Optional: clear chat/recommendation history and show lifecycle controls.
 
 ## 5. Backend Validation Command
 
