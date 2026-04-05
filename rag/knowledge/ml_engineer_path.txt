@@ -1,0 +1,32 @@
+Machine Learning Engineer Path
+
+Core Skills:
+- Python, NumPy, pandas
+- Scikit-learn and model evaluation
+- Feature engineering
+- Model serving with FastAPI
+- MLOps basics
+
+Learning Plan:
+Phase 1:
+- Core ML algorithms and evaluation metrics
+
+Phase 2:
+- Build reproducible training pipelines
+
+Phase 3:
+- Serve model endpoints and track versions
+
+Phase 4:
+- Monitoring, drift checks, retraining plan
+
+Portfolio Projects:
+- Classification API deployment
+- Recommendation ranking model
+- Model monitoring mini-system
+
+Interview Focus:
+- Bias-variance trade-off
+- Feature leakage
+- Evaluation choices
+- Deployment constraints

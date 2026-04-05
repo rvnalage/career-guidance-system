@@ -25,6 +25,17 @@ Agentic AI-driven career guidance platform with secure user accounts, personaliz
 - AI/Logic: Deterministic agent routing + recommendation scoring service
 - Infra: Docker Compose (Postgres, MongoDB, Redis, Backend, Frontend)
 
+## Documentation
+
+Core architecture and design:
+- [RAG + LLM Integration](docs/rag-llm-integration.md) — How the retrieval-augmented generation system grounds LLM responses in your career knowledge base
+- [API Specification](docs/api-spec.md)
+- [System Design](docs/design.md)
+- [Testing Strategy](docs/testing-strategy.md)
+
+Fine-tuning:
+- [TinyLlama Fine-tuning Quick Start](TINYLLAMA_QUICKSTART.md) — One-command fine-tuning for local model optimization
+
 ## Project Structure
 
 ```text

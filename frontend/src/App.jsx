@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, NavLink, Route, Routes } from "react-router-do
 import ChatPage from "./pages/Chat";
 import DashboardPage from "./pages/Dashboard";
 import HomePage from "./pages/Home";
+import SettingsPage from "./pages/Settings";
 import { apiClient, clearAuthToken, setAuthToken } from "./services/api";
 import { loginUser, registerUser } from "./services/auth";
 
@@ -83,6 +84,7 @@ function App() {
                         <NavLink to="/">Home</NavLink>
                         <NavLink to="/chat">Chat</NavLink>
                         <NavLink to="/dashboard">Dashboard</NavLink>
+                        <NavLink to="/settings">Settings</NavLink>
                     </nav>
                     <button className="button ghost" onClick={authActions.onLogout} disabled={!token}>
                         Logout
@@ -112,6 +114,14 @@ function App() {
                             element={
                                 <ProtectedRoute isAuthenticated={Boolean(token)}>
                                     <DashboardPage currentUser={currentUser} />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/settings"
+                            element={
+                                <ProtectedRoute isAuthenticated={Boolean(token)}>
+                                    <SettingsPage />
                                 </ProtectedRoute>
                             }
                         />

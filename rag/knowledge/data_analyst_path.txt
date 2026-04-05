@@ -1,0 +1,40 @@
+Data Analyst Path for MTech Students
+
+Key Skills:
+- SQL
+- Excel
+- Python (pandas, matplotlib)
+- Dashboard tools (Power BI or Tableau)
+- Basic statistics
+
+Learning Plan:
+Step 1:
+Master SQL query writing and optimization for analysis tasks.
+
+Step 2:
+Learn data cleaning and exploratory data analysis in Python.
+
+Step 3:
+Build dashboards from a real dataset:
+- KPI definitions
+- Trend analysis
+- Segment analysis
+
+Step 4:
+Practice business communication:
+- Convert analysis into insights
+- Present recommendations with impact
+
+Portfolio Projects:
+- Sales performance analysis dashboard
+- Customer churn analysis
+- Hiring funnel analysis
+
+Interview Focus:
+- SQL joins and window functions
+- KPI interpretation
+- A/B testing basics
+- Data storytelling
+
+Suggested Next Step:
+Complete one capstone project with business recommendations and measurable outcomes.

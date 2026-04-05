@@ -1,0 +1,32 @@
+Data Engineer Career Path
+
+Core Skills:
+- SQL advanced
+- ETL/ELT pipelines
+- Python for data engineering
+- Data warehousing basics
+- Airflow or orchestration tools
+
+Learning Plan:
+Week 1-2:
+- SQL optimization and data modeling
+
+Week 3-4:
+- Build ETL pipelines in Python
+
+Week 5-6:
+- Learn warehouse design and partitioning
+
+Week 7-8:
+- Add orchestration and monitoring
+
+Portfolio Projects:
+- Batch ETL pipeline
+- Streaming ingestion prototype
+- Data quality validation framework
+
+Interview Focus:
+- Pipeline reliability
+- Schema design choices
+- Data quality and lineage
+- Cost-performance trade-offs

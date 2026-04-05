@@ -1,0 +1,41 @@
+{
+  "aggregate": {
+    "mean_bandit_recall_at_1": 0.0,
+    "mean_bandit_mean_reward": 0.0,
+    "mean_random_recall_at_1": 0.0,
+    "mean_random_mean_reward": 0.0,
+    "n_users": 4,
+    "bandit_vs_random_recall_lift": 0.0,
+    "bandit_vs_random_reward_lift": 0.0
+  },
+  "per_user": {
+    "u1": {
+      "n_test_positive": 1,
+      "bandit_recall_at_1": 0.0,
+      "bandit_mean_reward": 0.0,
+      "random_recall_at_1": 0.0,
+      "random_mean_reward": 0.0
+    },
+    "u2": {
+      "n_test_positive": 1,
+      "bandit_recall_at_1": 0.0,
+      "bandit_mean_reward": 0.0,
+      "random_recall_at_1": 0.0,
+      "random_mean_reward": 0.0
+    },
+    "u3": {
+      "n_test_positive": 1,
+      "bandit_recall_at_1": 0.0,
+      "bandit_mean_reward": 0.0,
+      "random_recall_at_1": 0.0,
+      "random_mean_reward": 0.0
+    },
+    "u4": {
+      "n_test_positive": 1,
+      "bandit_recall_at_1": 0.0,
+      "bandit_mean_reward": 0.0,
+      "random_recall_at_1": 0.0,
+      "random_mean_reward": 0.0
+    }
+  }
+}

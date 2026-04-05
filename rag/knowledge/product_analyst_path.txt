@@ -1,0 +1,32 @@
+Product Analyst Career Path
+
+Core Skills:
+- SQL and dashboards
+- Product metrics design
+- Experimentation and A/B testing
+- Funnel and cohort analysis
+- Stakeholder communication
+
+Learning Plan:
+Step 1:
+- Understand product lifecycle and user journey
+
+Step 2:
+- Define metrics: activation, retention, conversion
+
+Step 3:
+- Build funnel and cohort analyses
+
+Step 4:
+- Run experiment analysis and recommendations
+
+Portfolio Projects:
+- Conversion funnel diagnosis
+- Retention improvement analysis
+- Feature impact evaluation report
+
+Interview Focus:
+- Metric selection rationale
+- Causality vs correlation
+- Experiment pitfalls
+- Business recommendation quality

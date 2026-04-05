@@ -1,5 +1,6 @@
 from app.services.agent_service import get_agent_response
 from app.nlp.intent_recognizer import detect_intent_with_confidence
+from app.services.intent_model_service import IntentPrediction
 
 
 def test_agent_service_selects_networking_agent():
@@ -59,3 +60,16 @@ def test_low_signal_message_falls_back_to_career_assessment():
 	intent, reply, _ = get_agent_response("hmm")
 	assert intent == "career_assessment"
 	assert "career" in reply.lower() or "role" in reply.lower()
+
+
+def test_agent_service_prefers_intent_model_when_available(monkeypatch):
+	from app.services import agent_service
+
+	def _mock_prediction(_: str):
+		return IntentPrediction(intent="networking", confidence=0.92)
+
+	monkeypatch.setattr(agent_service, "detect_intent_with_model", _mock_prediction)
+	intent, reply, next_step = get_agent_response("this text should be ignored by keyword router")
+	assert intent == "networking"
+	assert "network" in reply.lower() or "linkedin" in reply.lower()
+	assert "networking" in next_step.lower() or "outreach" in next_step.lower()

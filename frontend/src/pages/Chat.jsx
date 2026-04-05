@@ -1,7 +1,86 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import ConfirmModal from "../components/Common/ConfirmModal";
 import { apiClient } from "../services/api";
+
+/* ─────────────────────────────────────────────────────────────────
+   Inline markdown renderer — no dependencies.
+   Handles: **bold**, *italic*, `code`,  bullet/numbered lists, line breaks.
+───────────────────────────────────────────────────────────────── */
+function formatInline(str) {
+    const parts = str.split(/(\*\*[^*]+\*\*|\*[^*]+\*|`[^`]+`)/);
+    return parts.map((part, i) => {
+        if (part.startsWith("**") && part.endsWith("**"))
+            return <strong key={i}>{part.slice(2, -2)}</strong>;
+        if (part.startsWith("*") && part.endsWith("*"))
+            return <em key={i}>{part.slice(1, -1)}</em>;
+        if (part.startsWith("`") && part.endsWith("`"))
+            return <code key={i} className="msg-inline-code">{part.slice(1, -1)}</code>;
+        return part;
+    });
+}
+
+function renderMessage(text) {
+    if (!text) return null;
+    const lines = text.split("\n");
+    const elements = [];
+    let ulItems = [];
+    let olItems = [];
+
+    const flushUl = () => {
+        if (ulItems.length === 0) return;
+        elements.push(<ul key={`ul-${elements.length}`} className="msg-list">{ulItems}</ul>);
+        ulItems = [];
+    };
+    const flushOl = () => {
+        if (olItems.length === 0) return;
+        elements.push(<ol key={`ol-${elements.length}`} className="msg-list msg-list-ol">{olItems}</ol>);
+        olItems = [];
+    };
+
+    for (const line of lines) {
+        const trimmed = line.trimEnd();
+        if (/^[-•*]\s/.test(trimmed)) {
+            flushOl();
+            ulItems.push(<li key={ulItems.length}>{formatInline(trimmed.slice(2).trim())}</li>);
+            continue;
+        }
+        const olMatch = trimmed.match(/^(\d+)[.)]\s+(.+)/);
+        if (olMatch) {
+            flushUl();
+            olItems.push(<li key={olItems.length}>{formatInline(olMatch[2])}</li>);
+            continue;
+        }
+        flushUl();
+        flushOl();
+        if (trimmed === "") {
+            if (elements.length > 0) elements.push(<div key={`sp-${elements.length}`} className="msg-spacer" />);
+        } else {
+            elements.push(<p key={`p-${elements.length}`} className="msg-para">{formatInline(trimmed)}</p>);
+        }
+    }
+    flushUl();
+    flushOl();
+    return elements;
+}
+
+function TypingIndicator() {
+    return (
+        <div className="typing-indicator" aria-label="Assistant is typing">
+            <span /><span /><span />
+        </div>
+    );
+}
+
+function SourceBadge({ source }) {
+    const map = {
+        agent_rag_llm: { label: "RAG + LLM", cls: "badge-llm" },
+        agent_rag: { label: "RAG", cls: "badge-rag" },
+        agent: { label: "Agent", cls: "badge-agent" },
+    };
+    const info = map[source] || { label: source, cls: "badge-agent" };
+    return <span className={`source-badge ${info.cls}`}>{info.label}</span>;
+}
 
 const DEFAULT_PSYCHOMETRIC = {
     investigative: 3,
@@ -27,6 +106,12 @@ function ChatPage({ isAuthenticated, currentUser }) {
     const [uploadLoading, setUploadLoading] = useState(false);
     const [pendingClearTarget, setPendingClearTarget] = useState(null);
     const [isProfileSectionCollapsed, setIsProfileSectionCollapsed] = useState(false);
+    const chatEndRef = useRef(null);
+
+    // Auto-scroll to newest message.
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [chat, loading]);
 
     const parseCsv = (value) =>
         value
@@ -150,34 +235,79 @@ function ChatPage({ isAuthenticated, currentUser }) {
 
     return (
         <section className="card chat-layout">
-            <h2>Agentic Career Intelligence Chat</h2>
+            <div className="chat-header-row">
+                <div className="chat-header-title">
+                    <span className="chat-header-icon" aria-hidden="true">🎯</span>
+                    <div>
+                        <h2>Career Intelligence Chat</h2>
+                        <p className="chat-header-sub">Powered by RAG + Agentic reasoning</p>
+                    </div>
+                </div>
+            </div>
+
             {error ? <p className="error-text">{error}</p> : null}
+
             <div className="chat-feed">
-                {chat.length === 0 ? <p className="muted-text">Ask about careers, skills, or interviews.</p> : null}
+                {chat.length === 0 ? (
+                    <div className="chat-empty-state">
+                        <span className="chat-empty-icon">💬</span>
+                        <p>Ask about career paths, skill gaps, interview prep, or learning roadmaps.</p>
+                        <div className="chat-suggestion-chips">
+                            <button type="button" className="suggestion-chip" onClick={() => setMessage("What career paths suit a Python developer interested in AI?")}>Python + AI career paths</button>
+                            <button type="button" className="suggestion-chip" onClick={() => setMessage("How should I prepare for a data science interview?")}>Data science interview tips</button>
+                            <button type="button" className="suggestion-chip" onClick={() => setMessage("Create a 6-month learning roadmap for ML engineering")}>ML roadmap</button>
+                        </div>
+                    </div>
+                ) : null}
                 {chat.map((entry, index) => (
                     <article key={`${entry.role}-${index}`} className={`chat-bubble ${entry.role}`}>
-                        <p>{entry.text}</p>
-                        {entry.responseSource ? (
-                            <small>
-                                Source: {entry.responseSource}
-                                {typeof entry.llmUsed === "boolean" ? ` | LLM used: ${entry.llmUsed ? "yes" : "no"}` : ""}
-                                {typeof entry.responseTimeMs === "number" ? ` | Time: ${entry.responseTimeMs} ms` : ""}
-                            </small>
-                        ) : null}
-                        {entry.responseSource && entry.nextStep ? <br /> : null}
-                        {entry.nextStep ? <small>Next: {entry.nextStep}</small> : null}
-                        {entry.citations?.length ? (
-                            <div className="citation-block">
-                                <small>Sources:</small>
-                                {entry.citations.map((citation, citationIndex) => (
-                                    <p key={`${citation.source || "src"}-${citation.title || "title"}-${citationIndex}`} className="citation-item">
-                                        [{citation.source_type}] {citation.title}
-                                    </p>
-                                ))}
+                        <div className="bubble-avatar" aria-hidden="true">
+                            {entry.role === "user" ? "🧑‍💻" : "🤖"}
+                        </div>
+                        <div className="bubble-body">
+                            <div className="bubble-content">
+                                {renderMessage(entry.text)}
                             </div>
-                        ) : null}
+                            {(entry.responseSource || entry.nextStep || entry.citations?.length) ? (
+                                <div className="bubble-meta">
+                                    {entry.responseSource ? (
+                                        <div className="bubble-meta-row">
+                                            <SourceBadge source={entry.responseSource} />
+                                            {typeof entry.responseTimeMs === "number" ? (
+                                                <span className="meta-timing">⏱ {entry.responseTimeMs} ms</span>
+                                            ) : null}
+                                        </div>
+                                    ) : null}
+                                    {entry.nextStep ? (
+                                        <div className="next-step-pill">
+                                            <span>💡</span> {entry.nextStep}
+                                        </div>
+                                    ) : null}
+                                    {entry.citations?.length ? (
+                                        <div className="citation-block">
+                                            <p className="citation-heading">📚 Referenced sources</p>
+                                            {entry.citations.map((citation, citationIndex) => (
+                                                <p key={`${citation.source || "src"}-${citation.title || "title"}-${citationIndex}`} className="citation-item">
+                                                    <span className="citation-type">{citation.source_type}</span>
+                                                    {citation.title}
+                                                </p>
+                                            ))}
+                                        </div>
+                                    ) : null}
+                                </div>
+                            ) : null}
+                        </div>
                     </article>
                 ))}
+                {loading ? (
+                    <article className="chat-bubble assistant">
+                        <div className="bubble-avatar" aria-hidden="true">🤖</div>
+                        <div className="bubble-body">
+                            <TypingIndicator />
+                        </div>
+                    </article>
+                ) : null}
+                <div ref={chatEndRef} />
             </div>
 
             <article className="chat-context-card">
@@ -190,7 +320,7 @@ function ChatPage({ isAuthenticated, currentUser }) {
                         onClick={() => setIsProfileSectionCollapsed((prev) => !prev)}
                     >
                         <div>
-                            <h3>Profile Context</h3>
+                            <h3>⚙️ Profile Context</h3>
                         </div>
                         <span className="collapse-icon" aria-hidden="true">
                             {isProfileSectionCollapsed ? "Expand" : "Minimize"}
@@ -322,24 +452,37 @@ function ChatPage({ isAuthenticated, currentUser }) {
                 </article>
             ) : null}
 
-            <form className="chat-input-row" onSubmit={sendMessage}>
-                <input
-                    value={message}
-                    placeholder="Type your career question"
-                    onChange={(event) => setMessage(event.target.value)}
-                />
-                <button className="button" type="submit" disabled={loading}>
-                    {loading ? "Sending..." : "Send"}
-                </button>
-            </form>
+            <div className="chat-input-wrapper">
+                <form className="chat-input-row" onSubmit={sendMessage}>
+                    <div className="chat-textarea-wrap">
+                        <textarea
+                            className="chat-textarea"
+                            value={message}
+                            rows={1}
+                            placeholder="Ask about careers, skills, interviews… (Enter to send, Shift+Enter for newline)"
+                            onChange={(event) => setMessage(event.target.value)}
+                            onKeyDown={(event) => {
+                                if (event.key === "Enter" && !event.shiftKey) {
+                                    event.preventDefault();
+                                    if (message.trim() && !loading) sendMessage(event);
+                                }
+                            }}
+                        />
+                    </div>
+                    <button className="button chat-send-btn" type="submit" disabled={loading || !message.trim()}>
+                        {loading ? <span className="send-spinner" /> : "↑ Send"}
+                    </button>
+                </form>
+                <p className="input-hint">Enter to send · Shift+Enter for new line</p>
+            </div>
 
             <div className="clear-action-row">
                 <button className="button ghost" type="button" onClick={() => setPendingClearTarget("local")}>
-                    Clear Chat On Screen
+                    🗑 Clear Screen
                 </button>
                 {isAuthenticated ? (
                     <button className="button ghost" type="button" onClick={() => setPendingClearTarget("backend")}>
-                        Clear Saved Chat (Backend)
+                        🗑 Clear Saved History
                     </button>
                 ) : null}
             </div>

@@ -1,0 +1,32 @@
+Resume and Portfolio Guidelines for Career Transition
+
+Resume Rules:
+- Keep to one page for fresher profile
+- Use impact statements with numbers
+- Match role keywords to job descriptions
+- Put projects before unrelated experience
+
+Project Description Template:
+- Problem
+- Dataset
+- Approach
+- Metrics
+- Business impact
+- Future improvements
+
+Portfolio Checklist:
+- Clean GitHub repository structure
+- Readable README with setup and results
+- Screenshots or charts for outcomes
+- Deployed demo link if possible
+
+Common Resume Mistakes:
+- Too many tools without depth
+- No measurable outcomes
+- Generic objective statement
+- Missing GitHub or portfolio links
+
+Final Validation:
+- Resume reviewed by mentor
+- Mock interview completed
+- Role-specific version prepared (analyst, ML, backend)

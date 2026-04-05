@@ -1,0 +1,39 @@
+{
+  "alpha": 0.05,
+  "n_drifted": 0,
+  "features": {
+    "rating": {
+      "ks_statistic": 0.0,
+      "p_value": 1.0,
+      "alpha": 0.05,
+      "drifted": false,
+      "baseline_mean": 3.583333,
+      "current_mean": 3.583333,
+      "mean_shift": 0.0,
+      "baseline_n": 12,
+      "current_n": 12
+    },
+    "n_feedback_tags": {
+      "ks_statistic": 0.0,
+      "p_value": 1.0,
+      "alpha": 0.05,
+      "drifted": false,
+      "baseline_mean": 1.333333,
+      "current_mean": 1.333333,
+      "mean_shift": 0.0,
+      "baseline_n": 12,
+      "current_n": 12
+    },
+    "helpful_rate": {
+      "ks_statistic": 0.0,
+      "p_value": 1.0,
+      "alpha": 0.05,
+      "drifted": false,
+      "baseline_mean": 0.666667,
+      "current_mean": 0.666667,
+      "mean_shift": -0.0,
+      "baseline_n": 12,
+      "current_n": 12
+    }
+  }
+}

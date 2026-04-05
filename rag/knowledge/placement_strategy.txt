@@ -1,0 +1,34 @@
+Placement Strategy for Final Year Students
+
+Targets:
+- 3 primary roles
+- 20 quality applications per week
+- 2 mock interviews per week
+
+Weekly Process:
+Monday:
+- Role-specific resume updates
+
+Tuesday:
+- Application submissions with tailored cover notes
+
+Wednesday:
+- Coding and SQL practice
+
+Thursday:
+- Project improvement and README updates
+
+Friday:
+- Behavioral interview preparation
+
+Saturday:
+- Mock interview and feedback review
+
+Sunday:
+- Plan next week and track progress
+
+Tracking Metrics:
+- Applications sent
+- Response rate
+- Interview conversion
+- Offer conversion

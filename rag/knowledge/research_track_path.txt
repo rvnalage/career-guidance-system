@@ -1,0 +1,32 @@
+Research Career Path for MTech Students
+
+Core Skills:
+- Literature review
+- Problem framing
+- Experimental design
+- Academic writing
+- Reproducible implementation
+
+Learning Plan:
+Month 1:
+- Read and summarize 20 key papers in target domain
+
+Month 2:
+- Identify gap and define hypothesis
+
+Month 3:
+- Build baseline and improved method
+
+Month 4:
+- Evaluate, ablation, and error analysis
+
+Deliverables:
+- Technical report
+- Reproducible code repo
+- Presentation and poster
+- Draft publication manuscript
+
+Interview Focus:
+- Novelty explanation
+- Method limitations
+- Future work direction

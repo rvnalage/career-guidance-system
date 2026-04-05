@@ -79,10 +79,10 @@ def build_base_corpus() -> list[KnowledgeChunk]:
 
 def default_one_note_extract_path() -> Path:
 	"""Resolve the default directory containing external text documents for ingestion."""
-	backend_root = Path(__file__).resolve().parents[2]
+	backend_root = Path(__file__).resolve().parents[3]  # Go up to project root
 	candidates = [
-		backend_root.parent / "one_note_extract",
-		backend_root.parent.parent / "one_note_extract",
+		backend_root / "rag" / "knowledge",  # New location in career-guidance-system
+		backend_root / "one_note_extract",   # Fallback to old location
 	]
 	for candidate in candidates:
 		if candidate.exists() and candidate.is_dir():

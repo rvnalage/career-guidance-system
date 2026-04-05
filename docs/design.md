@@ -206,11 +206,16 @@ When a user submits `POST /psychometric/score/me`, their `recommended_domains` a
 
 ### 5.1 Ingestion
 
-Document ingestion reads `.txt` files from `one_note_extract/` (default) or a caller-supplied directory path. Each file is split into overlapping chunks. Each ingested chunk currently uses:
+Document ingestion reads `.txt` files from `career-guidance-system/rag/knowledge/` (consolidated knowledge base) or a caller-supplied directory path. Each file is split into overlapping chunks. Each ingested chunk currently uses:
 - `source_type`: `document`
 - `metadata.topic`: `document`
 - `metadata.file_name`: source filename
 - `metadata.chunk_index`: chunk position within file
+
+The default knowledge base contains 16 curated career guidance documents:
+- Career paths (Backend, ML Engineer, Data Analyst, Data Engineer, DevOps, Product Analyst, UI/UX, Research)
+- Guidance topics (Interview Prep, Portfolio, Resume Guidelines, Career Framework, Placement Strategy, Soft Skills)
+- Special content (ML Roadmap, Higher Studies vs Job decision guide)
 
 Quality filters:
 - chunks with normalized length < 80 are dropped
@@ -239,6 +244,26 @@ Return top `RAG_TOP_K` (default 4) after re-ranking.
 ### 5.4 Query Rewriting
 
 Before retrieval, queries are rewritten using deterministic synonym replacement (for example, `ml → machine learning`, `mtech → master`, `cv → portfolio`, `job prep → interview preparation`). This improves recall for informal student queries while keeping retrieval behavior predictable.
+
+---
+
+## 5.5 LLM Response Refinement & Fine-Tuning
+
+The system supports optional LLM-based response refinement using TinyLlama 1.1B (local via Ollama):
+
+**Gating**: LLM is only invoked when:
+- `LLM_ENABLED=true`
+- `LLM_REQUIRE_RAG_CONTEXT=true` AND RAG retrieval returns context
+- This prevents hallucinations by ensuring LLM always receives grounded knowledge
+
+**Fine-Tuning Infrastructure** (available for optimization):
+- **Dataset generation**: `ml-models/training/prepare_tinyllama_dataset.py` converts 16 knowledge base documents → 73 JSONL training examples
+- **QLoRA trainer**: `ml-models/training/train_tinyllama_cpu.py` implements parameter-efficient fine-tuning (batch size 1, gradient accumulation 4)
+- **Orchestration**: `scripts/run_tinyllama_finetuning.ps1` stages prepare → train → evaluate
+- **Training time**: 1-2 hours per epoch on CPU (no GPU required)
+- **Deployment**: Fine-tuned adapter can be loaded via `LLM_FINETUNED_MODEL` env var or exported as Ollama custom model
+
+See [RAG + LLM Integration](rag-llm-integration.md) for code-level flow: user message → RAG retrieval → prompt injection → LLM call → response.
 
 ---
 

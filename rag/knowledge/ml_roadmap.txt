@@ -1,0 +1,33 @@
+Machine Learning Career Roadmap (Beginner to Job-Ready)
+
+Phase 1: Foundations (4 to 6 weeks)
+- Python: functions, OOP basics, file handling
+- Math: probability, statistics, linear algebra basics
+- SQL: filtering, joins, aggregations
+
+Phase 2: Core ML (6 to 8 weeks)
+- Data preprocessing and feature engineering
+- Supervised learning: regression and classification
+- Unsupervised learning: clustering and dimensionality reduction
+- Evaluation metrics: accuracy, precision, recall, F1, ROC-AUC
+
+Phase 3: Practical Work (6 to 10 weeks)
+- Build 3 end-to-end projects:
+  1) Classification project
+  2) Recommendation project
+  3) Time-series or NLP project
+- Write clear READMEs with dataset, method, and results
+
+Phase 4: Deployment and MLOps Basics (4 to 6 weeks)
+- FastAPI for model serving
+- Docker basics
+- Model versioning and experiment tracking
+- Monitoring simple model drift indicators
+
+Phase 5: Interview and Portfolio (3 to 4 weeks)
+- Revise ML theory and model trade-offs
+- Practice case-based questions
+- Publish portfolio and LinkedIn summary
+
+Outcome:
+Candidate should be able to explain model decisions, evaluate trade-offs, and deploy a basic ML API.

@@ -1,0 +1,32 @@
+Backend Developer Career Path
+
+Core Skills:
+- Python
+- FastAPI or Django
+- SQL and database design
+- REST API design
+- Docker basics
+
+Learning Plan:
+Week 1-2:
+- Python advanced topics, error handling, API basics
+
+Week 3-4:
+- Build CRUD APIs with authentication and validation
+
+Week 5-6:
+- Learn relational modeling, indexing, transactions
+
+Week 7-8:
+- Add caching, logging, and API testing
+
+Portfolio Projects:
+- User auth service with JWT
+- Task management API
+- Recommendation microservice
+
+Interview Focus:
+- API versioning
+- DB normalization
+- Concurrency basics
+- Performance bottlenecks

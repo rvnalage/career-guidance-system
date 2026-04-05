@@ -1,13 +1,45 @@
 """Diagnostics routes for inspecting the optional LLM runtime configuration."""
 
 from fastapi import APIRouter
+from pydantic import BaseModel
 
-from app.services.llm_service import get_llm_runtime_status
+from app.services.llm_service import (
+	get_llm_runtime_status,
+	reset_llm_runtime_config,
+	update_llm_runtime_config,
+)
 
 router = APIRouter()
+
+
+class LLMRuntimeConfigUpdate(BaseModel):
+	"""Optional in-memory LLM runtime overrides that apply without process restart."""
+	enabled: bool | None = None
+	provider: str | None = None
+	base_url: str | None = None
+	model: str | None = None
+	finetuned_model: str | None = None
+	require_rag_context: bool | None = None
+	request_timeout_seconds: int | None = None
+	auto_fallback_to_openai: bool | None = None
+	openai_base_url: str | None = None
+	openai_model: str | None = None
 
 
 @router.get("/status")
 async def llm_status() -> dict[str, object]:
 	"""Return the active LLM configuration and enablement state."""
 	return get_llm_runtime_status()
+
+
+@router.post("/config")
+async def llm_update_config(payload: LLMRuntimeConfigUpdate) -> dict[str, object]:
+	"""Apply runtime overrides so provider/model can be toggled live without restart."""
+	updates = payload.model_dump(exclude_none=True)
+	return update_llm_runtime_config(updates)
+
+
+@router.post("/config/reset")
+async def llm_reset_config() -> dict[str, object]:
+	"""Clear all runtime overrides and revert to environment-backed defaults."""
+	return reset_llm_runtime_config()

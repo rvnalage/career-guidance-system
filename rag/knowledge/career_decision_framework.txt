@@ -1,0 +1,39 @@
+Career Decision Framework
+
+Inputs:
+- Current skills
+- Interests
+- Education level
+- Time available
+- Preferred work type (research, product, engineering, analytics)
+
+Scoring Method:
+1) Skills fit score
+2) Interest fit score
+3) Education fit score
+4) Market demand score
+
+Decision Rule:
+Choose top 2 paths by total score, then run a 4-week experiment for each path.
+
+4-Week Path Experiment:
+Week 1:
+Read role expectations and required tools.
+
+Week 2:
+Complete one guided project.
+
+Week 3:
+Create one mini independent project.
+
+Week 4:
+Do mock interview and self-review.
+
+Evaluation Questions:
+- Did I enjoy daily tasks?
+- Could I learn quickly?
+- Was I able to produce portfolio evidence?
+- Is there hiring demand in this role?
+
+Output:
+Pick one primary path and one backup path with a 90-day action plan.

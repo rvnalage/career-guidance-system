@@ -1,0 +1,32 @@
+UI UX Designer Career Path
+
+Core Skills:
+- User research
+- Wireframing
+- Prototyping in Figma
+- Usability testing
+- Design systems
+
+Learning Plan:
+Step 1:
+- Study UI principles and accessibility basics
+
+Step 2:
+- Create user flows and low-fidelity wireframes
+
+Step 3:
+- Build high-fidelity prototypes and design components
+
+Step 4:
+- Conduct usability tests and iterate
+
+Portfolio Projects:
+- Mobile app redesign
+- Dashboard UX improvement
+- End-to-end case study from problem to solution
+
+Interview Focus:
+- Design process explanation
+- Trade-off decisions
+- User feedback incorporation
+- Collaboration with developers

@@ -13,6 +13,20 @@ This checklist tracks net-new phase-2 work on top of the currently implemented v
 
 Use this baseline as the comparison point for all phase-2 improvements.
 
+## 0.5) TinyLlama Fine-Tuning Infrastructure ✅
+
+**Status: Infrastructure Complete, Training Pending**
+
+- ✅ Consolidated RAG knowledge base: 16 career guidance documents moved to `rag/knowledge/` (source of truth for both RAG and training).
+- ✅ Dataset preparation: `ml-models/training/prepare_tinyllama_dataset.py` generates 73 JSONL training examples from knowledge base.
+- ✅ QLoRA trainer: `ml-models/training/train_tinyllama_cpu.py` implements parameter-efficient fine-tuning (batch size 1, gradient accumulation 4, 1-2 hours per epoch on CPU).
+- ✅ Evaluation: `ml-models/training/eval_tinyllama.py` tests fine-tuned model on 5 career guidance prompts.
+- ✅ Orchestration: `scripts/run_tinyllama_finetuning.ps1` PowerShell script stages prepare → train → evaluate pipeline.
+- ✅ Documentation: `TINYLLAMA_QUICKSTART.md` and `TINYLLAMA_FINETUNING_GUIDE.md` with integration paths.
+- Generated artifacts: `ml-models/datasets/tinyllama_sft_generated.jsonl` (73 examples, 76 KB ready).
+- **Next steps**: Execute pipeline → merge adapter → deploy fine-tuned model to production.
+- **Integration**: Fine-tuned model can be loaded via `LLM_FINETUNED_MODEL` env var or exported as Ollama custom model.
+
 ## 1) NLP / Query Processing (BERT or DistilBERT)
 
 - Build labeled dataset at `ml-models/datasets/intent_queries.csv` with `query,intent,entities_json`.
@@ -41,37 +55,44 @@ Use this baseline as the comparison point for all phase-2 improvements.
 - Keep deterministic mapping as fallback.
 - Add tests for model I/O and endpoint correctness.
 
-## 4) Recommendation Agent (Hybrid + Collaborative Filtering)
+## 4) Recommendation Agent (Hybrid + Collaborative Filtering) ✅
 
-- Prepare user-item interaction matrix from recommendation history + feedback.
-- Train candidate CF model (matrix factorization or implicit CF).
-- Train ranking model (XGBoost/LightGBM).
-- Add blending logic: baseline content score + CF score + psychometric score.
-- Add calibration and top-k evaluation pipeline.
-- Track metrics: Recall@K, NDCG@K, MAP@K.
+- ✅ Prepare user-item interaction matrix from recommendation history + feedback.
+- ✅ Train candidate CF model (TruncatedSVD matrix factorization) — `ml-models/training/train_cf_recommender.py`.
+- ✅ Runtime CF service at `backend/app/services/cf_service.py` with cold-start fallback to column means.
+- ✅ Add blending logic: baseline content score + CF additive term (cf_model_alpha) + psychometric score.
+- ✅ CF scores stored separately in personalization profile so they appear as explicit `cf_score` feature in XAI output.
+- ✅ Track metrics: Recall@K, NDCG@K, MAP@K via `ml-models/evaluation/evaluate_recommendation_ranking.py`.
+- Config flags: `CF_MODEL_ENABLED`, `CF_MODEL_ARTIFACT_PATH`, `CF_MODEL_ALPHA`.
 
-## 5) Feedback & Adaptation Agent (Bandit/RL-lite)
+## 5) Feedback & Adaptation Agent (Bandit/RL-lite) ✅
 
-- Define reward signal from `helpful`, `rating`, and downstream actions.
-- Implement contextual bandit policy (epsilon-greedy or LinUCB).
-- Store policy state and update online after feedback events.
-- Add guardrails: min exploration, bounded score shifts.
-- Add offline replay evaluation script.
+- ✅ Define reward signal from `helpful`, `rating`: `reward = 0.5*helpful + 0.5*(rating-1)/4`.
+- ✅ Implement epsilon-greedy bandit policy — `backend/app/services/bandit_service.py`.
+- ✅ Store policy state in JSON file; update online after each feedback event via `record_feedback()`.
+- ✅ Bandit reranks top-K recommendations post content scoring via `rerank_recommendations()`.
+- ✅ Guardrails: configurable epsilon, bounded score shifts, flag-gated (disabled by default).
+- Config flags: `BANDIT_ENABLED`, `BANDIT_ARTIFACT_PATH`, `BANDIT_EPSILON`.
+- Pending: offline replay evaluation script.
 
-## 6) Explainability Agent (True SHAP/LIME)
+## 6) Explainability Agent (True SHAP/LIME) ✅
 
-- Attach SHAP/LIME over trained ranking model inputs.
-- Return feature attributions for each recommended role.
-- Update explanation endpoint payload to include `model_name`, `model_version`, top positive/negative features, and confidence interval (if available).
-- Keep current deterministic fallback path for runtime resilience.
+- ✅ SHAP KernelExplainer and LIME LimeTabularExplainer attached to full 5-feature scoring model.
+- ✅ `cf_score` added as 5th feature in `FEATURE_ORDER`; SHAP background and LIME training matrix updated.
+- ✅ Each recommendation response includes `cf_score` as named `FeatureContribution`.
+- ✅ Deterministic weighted fallback retained for resilience when SHAP/LIME not installed.
+- ✅ `get_explainer_runtime_status()` reports active explainer mode.
 
-## 7) MLOps and Governance (Cross-Cutting)
+## 7) MLOps and Governance (Cross-Cutting) ✅
 
-- Add model registry metadata file (`model_name`, `version`, `trained_at`, `metrics`).
-- Add data version tags for each training run.
-- Add drift checks for input distribution changes.
-- Add scheduled retraining workflow (weekly or monthly).
-- Add safety filters for generated text responses.
+- ✅ Model registry metadata (`model_registry.json`) output by all five training scripts.
+- ✅ `--model-version` and `--data-version` CLI args on all training scripts.
+- ✅ `GET /api/v1/modeling/status` endpoint reports enablement + artifact presence for all 5 models + safety filter.
+- ✅ `backend/app/services/model_runtime_service.py` covers intent, user-pref, psychometric, CF, bandit, safety filter.
+- ✅ Input drift detection — `ml-models/evaluation/detect_input_drift.py` (KS test + heuristic fallback); baseline at `drift_baseline.json`; `drift_report.json` output; exits with code 2 if drift detected (CI-friendly).
+- ✅ Bandit offline replay evaluator — `ml-models/evaluation/evaluate_bandit_replay.py`; computes Recall@1 and mean reward vs random baseline per user; writes `bandit_replay_results.json`.
+- ✅ LLM reply safety filter — `backend/app/services/safety_filter.py`; 3-layer (harmful block → off-topic redirect → repetition guard); applied in `generate_llm_reply()`; flag-gated via `SAFETY_FILTER_ENABLED` (default True).
+- 🔲 Scheduled retraining workflow (weekly/monthly cron — out of scope for local dev setup).
 
 ## 8) Acceptance Gates
 

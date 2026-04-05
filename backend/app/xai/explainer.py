@@ -57,15 +57,16 @@ def _try_lime(feature_map: dict[str, float], weights: dict[str, float]) -> list[
 		# LIME needs a small synthetic training matrix even though the underlying model is hand-crafted.
 		coefficients = get_model_coefficients(weights)
 		vector = np.array(feature_vector_from_map(feature_map), dtype=float)
+		n_features = len(FEATURE_ORDER)
 		training = np.array(
 			[
-				[0.0, 0.0, 0.0, 0.0],
-				[1.0, 1.0, 1.0, 0.1],
-				[0.5, 0.3, 1.0, 0.0],
-				[0.8, 0.2, 0.6, -0.1],
+				[0.0, 0.0, 0.0, 0.0, 0.5],
+				[1.0, 1.0, 1.0, 0.1, 0.8],
+				[0.5, 0.3, 1.0, 0.0, 0.5],
+				[0.8, 0.2, 0.6, -0.1, 0.3],
 			],
 			dtype=float,
-		)
+		)[:, :n_features]
 		explainer = LimeTabularExplainer(
 			training_data=training,
 			feature_names=FEATURE_ORDER,

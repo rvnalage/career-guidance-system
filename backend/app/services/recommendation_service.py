@@ -16,8 +16,12 @@ from app.schemas.recommendation import (
 	RecommendationRequest,
 )
 from app.database.mongo_db import get_feedback_collection, get_recommendation_collection
+from app.config import settings
 from app.utils.constants import CAREER_PATHS, EDUCATION_ORDER
 from app.utils.logger import get_logger
+from app.services.user_model_service import score_role_preferences
+from app.services.cf_service import score_cf_roles
+from app.services.bandit_service import record_feedback as bandit_record_feedback, rerank_recommendations
 from app.xai.explainer import explain_recommendation
 
 _recommendation_fallback: dict[str, list[dict]] = {}
@@ -126,7 +130,20 @@ async def get_personalization_profile(user_id: str) -> dict[str, dict]:
 
 	if not feedback_items:
 		return _default_personalization_profile()
-	return _compute_personalization_profile(feedback_items)
+	profile = _compute_personalization_profile(feedback_items)
+	roles = [path["role"] for path in CAREER_PATHS]
+	model_scores = score_role_preferences(feedback_items, roles)
+	if model_scores:
+		# Blend model role affinity into existing heuristic role bonuses while preserving hard bounds.
+		for role, score in model_scores.items():
+			existing = float(profile["role_bonus"].get(role, 0.0))
+			centered = (float(score) - 0.5) * 2.0  # map [0,1] -> [-1,1]
+			model_bonus = centered * 0.1 * max(0.0, min(1.0, settings.user_preference_model_alpha))
+			profile["role_bonus"][role] = _bounded(existing + model_bonus, -0.2, 0.2)
+	# CF hybrid: store raw CF scores separately so _score_paths can expose them as an
+	# explicit explainable contribution (do NOT fold into role_bonus to avoid double-counting).
+	profile["cf_scores"] = score_cf_roles(user_id, roles)
+	return profile
 
 
 def _score_paths(
@@ -139,6 +156,7 @@ def _score_paths(
 	profile = personalization_profile or _default_personalization_profile()
 	weights = profile.get("weights", _default_personalization_profile()["weights"])
 	role_bonus_map = profile.get("role_bonus", {})
+	cf_scores_map: dict[str, float] = profile.get("cf_scores", {})
 
 	weighted_recommendations: list[tuple[float, CareerRecommendation, list[FeatureContribution]]] = []
 
@@ -155,12 +173,18 @@ def _score_paths(
 		education_score = _education_score(payload.education_level, path["min_education"])
 		personalization_bonus = _bounded(float(role_bonus_map.get(role, 0.0)), -0.2, 0.2)
 
+		# CF additive term — kept separate from personalization_bonus for XAI transparency.
+		cf_raw = float(cf_scores_map.get(role, 0.5))
+		alpha = max(0.0, min(1.0, settings.cf_model_alpha))
+		cf_contribution = _bounded((cf_raw - 0.5) * 2.0 * 0.1 * alpha, -0.1, 0.1)
+
 		# Weighted aggregate tuned for student career suitability scoring + feedback personalization.
 		final_score = (
 			(float(weights.get("skill", 0.5)) * skill_score)
 			+ (float(weights.get("interest", 0.3)) * interest_score)
 			+ (float(weights.get("education", 0.2)) * education_score)
 			+ personalization_bonus
+			+ cf_contribution
 		)
 		final_score = _bounded(final_score, 0.0, 1.0)
 
@@ -174,6 +198,7 @@ def _score_paths(
 			FeatureContribution(feature="interest_match", value=round(interest_score, 4)),
 			FeatureContribution(feature="education_fit", value=round(education_score, 4)),
 			FeatureContribution(feature="personalization_bonus", value=round(personalization_bonus, 4)),
+			FeatureContribution(feature="cf_score", value=round(cf_raw, 4)),
 		]
 		weighted_recommendations.append((final_score, recommendation, contributions))
 
@@ -186,9 +211,12 @@ def generate_career_recommendations(
 	top_k: int = 3,
 	personalization_profile: dict[str, dict] | None = None,
 ) -> list[CareerRecommendation]:
-	"""Return the top-k ranked career recommendations for a user profile."""
+	"""Return the top-k ranked career recommendations, optionally reordered by bandit policy."""
 	weighted_recommendations = _score_paths(payload, personalization_profile=personalization_profile)
-	return [item[1] for item in weighted_recommendations[:top_k]]
+	top_candidates = [item[1] for item in weighted_recommendations[:top_k]]
+	reranked_roles = rerank_recommendations([r.role for r in top_candidates])
+	role_to_rec = {r.role: r for r in top_candidates}
+	return [role_to_rec[role] for role in reranked_roles if role in role_to_rec]
 
 
 def generate_recommendation_explanations(
@@ -286,4 +314,6 @@ async def save_recommendation_feedback(user_id: str, payload: RecommendationFeed
 	except Exception:
 		logger.exception("Failed to save recommendation feedback for user_id=%s", user_id)
 		_feedback_fallback.setdefault(user_id, []).append(document)
+	# Update bandit arm statistics for online learning.
+	bandit_record_feedback(payload.role, payload.helpful, document["rating"])
 	return document

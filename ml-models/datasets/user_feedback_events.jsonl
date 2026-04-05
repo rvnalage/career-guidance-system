@@ -1,0 +1,12 @@
+{"user_id":"u1","role":"Machine Learning Engineer","helpful":true,"rating":5,"feedback_tags":["skills","interests"]}
+{"user_id":"u1","role":"Data Analyst","helpful":false,"rating":2,"feedback_tags":["skills"]}
+{"user_id":"u1","role":"Backend Developer","helpful":true,"rating":4,"feedback_tags":["skills","education"]}
+{"user_id":"u2","role":"UI/UX Designer","helpful":true,"rating":5,"feedback_tags":["interests"]}
+{"user_id":"u2","role":"Cloud DevOps Engineer","helpful":false,"rating":2,"feedback_tags":["skills"]}
+{"user_id":"u2","role":"Backend Developer","helpful":true,"rating":4,"feedback_tags":["skills"]}
+{"user_id":"u3","role":"Data Analyst","helpful":true,"rating":4,"feedback_tags":["interests"]}
+{"user_id":"u3","role":"Machine Learning Engineer","helpful":true,"rating":4,"feedback_tags":["skills","education"]}
+{"user_id":"u3","role":"UI/UX Designer","helpful":false,"rating":2,"feedback_tags":["interests"]}
+{"user_id":"u4","role":"Cloud DevOps Engineer","helpful":true,"rating":5,"feedback_tags":["skills","education"]}
+{"user_id":"u4","role":"Backend Developer","helpful":true,"rating":4,"feedback_tags":["skills"]}
+{"user_id":"u4","role":"Data Analyst","helpful":false,"rating":2,"feedback_tags":["interests"]}

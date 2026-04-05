@@ -1,0 +1,32 @@
+Cloud DevOps Engineer Path
+
+Core Skills:
+- Linux fundamentals
+- Docker and containerization
+- CI/CD pipelines
+- Kubernetes basics
+- Cloud services (AWS/Azure/GCP basics)
+
+Learning Plan:
+Phase 1:
+- Linux commands, shell scripting, networking basics
+
+Phase 2:
+- Dockerize applications and manage images
+
+Phase 3:
+- Set up CI/CD with GitHub Actions or Jenkins
+
+Phase 4:
+- Deploy to Kubernetes and configure services/ingress
+
+Portfolio Projects:
+- CI/CD for full-stack app
+- Kubernetes deployment with autoscaling
+- Monitoring dashboard with alerts
+
+Interview Focus:
+- Deployment strategy
+- Incident handling
+- Cost optimization
+- Infrastructure as code concepts

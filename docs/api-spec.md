@@ -757,7 +757,86 @@ Inspect LLM runtime configuration.
 
 ---
 
-## 13. Error Response Reference
+## 13. Modeling Status — `/api/v1/modeling`
+
+### `GET /modeling/status`
+
+Inspect which phase-2 ML models are enabled and whether their artifact files are present on disk.  No authentication required.
+
+**Response `200`**
+```json
+{
+  "intent_model": {
+    "enabled": false,
+    "artifact_dir": "ml-models/pretrained/intent_model",
+    "model_exists": false,
+    "labels_exists": false,
+    "min_confidence": 0.5
+  },
+  "user_preference_model": {
+    "enabled": false,
+    "artifact_path": "ml-models/pretrained/user_modeling/user_preference_model.pkl",
+    "artifact_exists": false,
+    "blend_alpha": 0.35
+  },
+  "psychometric_model": {
+    "enabled": false,
+    "artifact_path": "ml-models/pretrained/psychometric_model/psychometric_model.pkl",
+    "artifact_exists": false
+  },
+  "cf_model": {
+    "enabled": false,
+    "artifact_dir": "ml-models/pretrained/cf_model",
+    "artifact_exists": false,
+    "blend_alpha": 0.25
+  },
+  "bandit": {
+    "enabled": false,
+    "artifact_dir": "ml-models/pretrained/bandit",
+    "state_exists": false,
+    "epsilon": 0.1
+  }
+}
+```
+
+Training commands to produce artifacts for each model:
+
+```bash
+# Intent classifier (TF-IDF + LogReg)
+python ml-models/training/train_intent_classifier.py \
+  --dataset ml-models/datasets/intent_queries.csv \
+  --output-dir ml-models/pretrained/intent_model
+
+# User preference model (XGBoost / RF fallback)
+python ml-models/training/build_user_features.py \
+  --dataset ml-models/datasets/user_feedback_events.jsonl
+python ml-models/training/train_user_preference_xgb.py \
+  --dataset ml-models/datasets/user_features.csv \
+  --output-dir ml-models/pretrained/user_modeling
+
+# CF hybrid recommender (TruncatedSVD)
+python ml-models/training/train_cf_recommender.py \
+  --dataset ml-models/datasets/user_feedback_events.jsonl \
+  --output-dir ml-models/pretrained/cf_model
+
+# Psychometric domain predictor (RandomForest)
+python ml-models/training/train_psychometric_model.py \
+  --output-dir ml-models/pretrained/psychometric_model
+```
+
+Enable each model by setting the corresponding flag in `.env`:
+
+```
+INTENT_MODEL_ENABLED=true
+USER_PREFERENCE_MODEL_ENABLED=true
+CF_MODEL_ENABLED=true
+PSYCHOMETRIC_MODEL_ENABLED=true
+BANDIT_ENABLED=true
+```
+
+---
+
+## 14. Error Response Reference
 
 All errors use the standard FastAPI error body:
 
@@ -777,7 +856,7 @@ All errors use the standard FastAPI error body:
 
 ---
 
-## 13. Intent Reference
+## 15. Intent Reference
 
 The `reply` field in chat responses is prefixed with the detected intent name when stored in history. The following intent names may appear:
 

@@ -8,16 +8,21 @@ FEATURE_ORDER = [
 	"interest_match",
 	"education_fit",
 	"personalization_bonus",
+	"cf_score",
 ]
 
 
 def get_model_coefficients(weights: dict[str, float]) -> list[float]:
 	# personalization bonus is already a direct additive adjustment in the score.
+	# cf_score uses its effective additive weight (alpha * 0.2, centred around 0.5).
+	from app.config import settings
+	cf_effective = float(settings.cf_model_alpha) * 0.2
 	return [
 		float(weights.get("skill", 0.5)),
 		float(weights.get("interest", 0.3)),
 		float(weights.get("education", 0.2)),
 		1.0,
+		cf_effective,
 	]
 
 

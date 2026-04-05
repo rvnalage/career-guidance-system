@@ -1,0 +1,44 @@
+Interview Preparation for MTech Students
+
+Goal:
+Prepare for technical and behavioral interviews in 6 weeks.
+
+Week 1:
+Review core CS topics: data structures, algorithms, DBMS basics, OS basics.
+Solve 3 easy and 2 medium coding problems daily.
+
+Week 2:
+Study SQL deeply: joins, subqueries, window functions, indexing.
+Practice 20 SQL interview questions with explanations.
+
+Week 3:
+Revise machine learning basics: bias-variance, overfitting, train-validation-test split, evaluation metrics.
+Prepare short explanations for common models: linear regression, logistic regression, decision tree, random forest.
+
+Week 4:
+Project storytelling practice:
+- Problem statement
+- Data source and quality
+- Approach and model choice
+- Metrics and business impact
+- Limitations and next steps
+
+Week 5:
+Behavioral interview prep using STAR method.
+Prepare answers for:
+- Tell me about yourself
+- Conflict in a team
+- Failure and learning
+- Why this role
+
+Week 6:
+Mock interviews:
+- 2 coding mocks
+- 2 ML/system discussion mocks
+- 1 HR mock
+
+Checklist:
+- Resume aligned with role
+- GitHub and portfolio links working
+- 2-minute self-introduction ready
+- Questions to ask interviewer prepared
