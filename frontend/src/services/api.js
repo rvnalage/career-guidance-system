@@ -4,8 +4,8 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api/
 
 export const apiClient = axios.create({
     baseURL: API_BASE_URL,
-    // Give the backend enough time to wait for Ollama and still return a fallback reply.
-    timeout: 90000,
+    // Keep the browser-side timeout above the backend/Ollama window used for local models.
+    timeout: 180000,
     headers: {
         "Content-Type": "application/json",
     },

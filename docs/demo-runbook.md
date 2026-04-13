@@ -4,13 +4,25 @@
 
 ### Backend
 
+Default command:
+
 ```bash
 cd backend
 python -m pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
+PowerShell alternative:
+
+```powershell
+cd career-guidance-system
+python -m pip install -r backend/requirements.txt
+powershell -ExecutionPolicy Bypass -File scripts/start_backend.ps1 -HostName 127.0.0.1 -Port 8000
+```
+
 ### Frontend
+
+Default command:
 
 ```bash
 cd frontend
@@ -18,11 +30,68 @@ npm install
 npm run dev
 ```
 
+PowerShell alternative:
+
+```powershell
+cd career-guidance-system/frontend
+npm install
+cd ..
+powershell -ExecutionPolicy Bypass -File scripts/start_frontend.ps1 -HostName 127.0.0.1 -Port 5173
+```
+
 ## 2. Quick Health Checks
 
 1. Open `http://localhost:8000/health` and confirm `{"status": "ok"}`.
 2. Open `http://localhost:8000/docs` and verify API docs load.
-3. Open the exact Vite URL shown in terminal (usually `http://localhost:5173` or `http://localhost:5174`) and login.
+3. Open `http://localhost:5173/` and login.
+
+## 2.1 Windows Quick Ops (Ports + Ollama)
+
+Use these when a port is already in use, a stale process is running, or you need to verify local model runtime.
+
+### Check and free backend/frontend ports
+
+```powershell
+# Check who is using backend/frontend ports
+netstat -ano | findstr :8000
+netstat -ano | findstr :5173
+
+# Kill by PID (replace <PID>)
+taskkill /PID <PID> /F
+
+# Optional: confirm process name before killing
+tasklist /FI "PID eq <PID>"
+
+# One-liner: kill all listeners on 8000 and 5173
+for /f "tokens=5" %a in ('netstat -ano ^| findstr :8000') do taskkill /PID %a /F
+for /f "tokens=5" %a in ('netstat -ano ^| findstr :5173') do taskkill /PID %a /F
+```
+
+### Check and free Ollama port
+
+```powershell
+netstat -ano | findstr :11434
+taskkill /PID <PID> /F
+```
+
+### Ollama runtime commands
+
+```powershell
+# Show installed local models
+ollama list
+
+# Pull model (first-time)
+ollama pull tinyllama:latest
+
+# Run model in terminal for quick sanity check
+ollama run tinyllama:latest
+
+# Optional: run project default model
+ollama run llama3.1:8b
+
+# Show locally available command help
+ollama --help
+```
 
 ## 3. RAG Setup For Demo
 

@@ -22,3 +22,9 @@ class ProfileIntakeResponse(BaseModel):
 	extracted_profile: ExtractedProfile
 	persisted_to_user_profile: bool
 	message: str
+
+
+class ProfileResetResponse(BaseModel):
+	"""Response returned when persisted chat-profile memory is cleared."""
+	deleted: bool
+	message: str

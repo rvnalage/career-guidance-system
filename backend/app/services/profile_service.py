@@ -209,3 +209,20 @@ async def apply_profile_patch(user_id: str, patch: dict[str, Any]) -> dict[str, 
 		logger.exception("Failed to apply profile patch in MongoDB for user_id=%s", user_id)
 		_profile_fallback[user_id] = document
 	return document
+
+
+async def clear_user_profile(user_id: str) -> bool:
+	"""Remove persisted chat-profile memory for a user from MongoDB and fallback cache."""
+	deleted = False
+	try:
+		collection = get_user_profile_collection()
+		result = await collection.delete_one({"user_id": user_id})
+		deleted = bool(result.deleted_count)
+	except Exception:
+		logger.exception("Failed to clear user profile in MongoDB for user_id=%s", user_id)
+
+	if user_id in _profile_fallback:
+		deleted = True
+		_profile_fallback.pop(user_id, None)
+
+	return deleted

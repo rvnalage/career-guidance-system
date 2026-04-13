@@ -21,6 +21,9 @@ class LLMRuntimeConfigUpdate(BaseModel):
 	finetuned_model: str | None = None
 	require_rag_context: bool | None = None
 	request_timeout_seconds: int | None = None
+	ollama_num_predict: int | None = None
+	rag_context_max_chars: int | None = None
+	chat_reply_max_sentences: int | None = None
 	auto_fallback_to_openai: bool | None = None
 	openai_base_url: str | None = None
 	openai_model: str | None = None

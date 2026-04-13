@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 
 from app.database.models import User
 from app.dependencies import get_current_user
-from app.schemas.profile_intake import ExtractedProfile, ProfileIntakeResponse
+from app.schemas.profile_intake import ExtractedProfile, ProfileIntakeResponse, ProfileResetResponse
 from app.schemas.psychometric import PsychometricRequest
 from app.services.profile_intake_service import (
 	SUPPORTED_TEXT_EXTENSIONS,
@@ -15,6 +15,7 @@ from app.services.profile_intake_service import (
 	merge_extracted_signals,
 )
 from app.services.profile_service import apply_profile_patch
+from app.services.profile_service import clear_user_profile
 from app.services.psychometric_service import save_user_psychometric_profile
 
 router = APIRouter()
@@ -65,5 +66,19 @@ async def upload_profile_files(
 			"Profile updated from uploaded files"
 			if persisted
 			else "Parsed upload for on_behalf mode. No changes were saved to your profile."
+		),
+	)
+
+
+@router.delete("/me", response_model=ProfileResetResponse)
+async def clear_my_profile_memory(current_user: User = Depends(get_current_user)) -> ProfileResetResponse:
+	"""Delete the current user's persisted chat-profile memory used for prompt personalization."""
+	deleted = await clear_user_profile(current_user.id)
+	return ProfileResetResponse(
+		deleted=deleted,
+		message=(
+			"Persisted profile memory cleared. Future chats will rebuild context from scratch."
+			if deleted
+			else "No persisted profile memory was found for the current user."
 		),
 	)

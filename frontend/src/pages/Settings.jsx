@@ -8,6 +8,8 @@ const defaultConfig = {
     base_url: "http://localhost:11434",
     model: "tinyllama:latest",
     request_timeout_seconds: 60,
+    ollama_num_predict: 96,
+    chat_reply_max_sentences: 8,
     require_rag_context: true,
     auto_fallback_to_openai: false,
     openai_base_url: "https://api.openai.com/v1",
@@ -29,6 +31,8 @@ function SettingsPage() {
             base_url: data.base_url || defaultConfig.base_url,
             model: data.base_model || defaultConfig.model,
             request_timeout_seconds: Number(data.request_timeout_seconds || defaultConfig.request_timeout_seconds),
+            ollama_num_predict: Number(data.ollama_num_predict || defaultConfig.ollama_num_predict),
+            chat_reply_max_sentences: Number(data.chat_reply_max_sentences || defaultConfig.chat_reply_max_sentences),
             require_rag_context: Boolean(data.require_rag_context),
             auto_fallback_to_openai: Boolean(data.auto_fallback_to_openai),
             openai_base_url: data.openai_base_url || defaultConfig.openai_base_url,
@@ -67,6 +71,8 @@ function SettingsPage() {
                 base_url: config.base_url,
                 model: config.model,
                 request_timeout_seconds: Number(config.request_timeout_seconds) || 60,
+                ollama_num_predict: Number(config.ollama_num_predict) || 96,
+                chat_reply_max_sentences: Number(config.chat_reply_max_sentences) || 8,
                 require_rag_context: config.require_rag_context,
                 auto_fallback_to_openai: config.auto_fallback_to_openai,
                 openai_base_url: config.openai_base_url,
@@ -152,6 +158,28 @@ function SettingsPage() {
                     />
                 </label>
 
+                <label>
+                    Ollama Max Predict Tokens
+                    <input
+                        type="number"
+                        min="24"
+                        max="256"
+                        value={config.ollama_num_predict}
+                        onChange={(event) => updateField("ollama_num_predict", event.target.value)}
+                    />
+                </label>
+
+                <label>
+                    Reply Sentence Cap
+                    <input
+                        type="number"
+                        min="1"
+                        max="20"
+                        value={config.chat_reply_max_sentences}
+                        onChange={(event) => updateField("chat_reply_max_sentences", event.target.value)}
+                    />
+                </label>
+
                 <label className="settings-check">
                     <input
                         type="checkbox"
@@ -207,6 +235,9 @@ function SettingsPage() {
                 <div className="metric-grid">
                     <div className="metric-item"><span>Provider</span>{runtimeStatus?.provider || "-"}</div>
                     <div className="metric-item"><span>Active model</span>{runtimeStatus?.active_model || "-"}</div>
+                    <div className="metric-item"><span>Request timeout</span>{runtimeStatus?.request_timeout_seconds ?? "-"}</div>
+                    <div className="metric-item"><span>Ollama max predict</span>{runtimeStatus?.ollama_num_predict ?? "-"}</div>
+                    <div className="metric-item"><span>Sentence cap</span>{runtimeStatus?.chat_reply_max_sentences ?? "-"}</div>
                     <div className="metric-item"><span>Runtime override</span>{runtimeStatus?.runtime_override_active ? "active" : "env default"}</div>
                     <div className="metric-item"><span>OPENAI_API_KEY</span>{runtimeStatus?.openai_api_key_configured ? "configured" : "missing"}</div>
                 </div>

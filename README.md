@@ -76,6 +76,8 @@ career-guidance-system/
 - `LLM_MODEL` (example `tinyllama:latest` in template, `llama3.1:8b` in code defaults)
 - `LLM_FINETUNED_MODEL` (optional, overrides base model when set)
 - `LLM_REQUEST_TIMEOUT_SECONDS`
+- `CHAT_REPLY_MAX_SENTENCES` (hard cap applied to final reply text; default `8`)
+- `LLM_RAG_CONTEXT_MAX_CHARS` (caps retrieved context size included in LLM prompt; default `1400`)
 - `LLM_REQUIRE_RAG_CONTEXT` (if `true`, LLM enhancement runs only when RAG context exists)
 
 ### Frontend

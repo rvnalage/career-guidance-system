@@ -6,6 +6,8 @@ If the provider is disabled or unavailable, the rest of the chat stack still wor
 
 from __future__ import annotations
 
+import re
+from time import perf_counter
 from typing import Optional
 
 import requests
@@ -36,6 +38,43 @@ INTENT_PROMPT_GUIDANCE = {
 	"career_assessment": "Ask clarifying questions and guide to role-fit decision matrix when uncertain.",
 }
 
+_ECHO_PREFIXES = (
+	"user message:",
+	"matched keywords:",
+	"profile:",
+	"detected intent:",
+	"intent confidence:",
+	"retrieved context:",
+	"base guidance:",
+	"next step:",
+	"sure, here's",
+	"sure, here is",
+)
+
+_SALUTATION_PREFIXES = (
+	"dear [user],",
+	"dear user,",
+	"hello [user],",
+	"hello user,",
+	"hi [user],",
+	"hi user,",
+)
+
+_LEADING_BOILERPLATE_PATTERNS = (
+	re.compile(r"^thank you for reaching out[^.!?\n]*(?:[.!?]|\s*-\s*|\s*:\s*|\s+)?", re.IGNORECASE),
+	re.compile(r"^i'?m happy to provide[^.!?\n]*(?:[.!?]|\s*-\s*|\s*:\s*|\s+)?", re.IGNORECASE),
+	re.compile(r"^i understand[^.!?\n]*(?:[.!?]|\s*-\s*|\s*:\s*|\s+)?", re.IGNORECASE),
+	re.compile(r"^here(?:'s| is) my final advice:?\s*", re.IGNORECASE),
+)
+
+_LOW_QUALITY_PATTERNS = (
+	re.compile(r"^i understand the importance", re.IGNORECASE),
+	re.compile(r"^i'?m happy to provide", re.IGNORECASE),
+	re.compile(r"^thank you for reaching out", re.IGNORECASE),
+	re.compile(r"role-specific technical practice \+ star behavioral stories", re.IGNORECASE),
+	re.compile(r"successful data engineer role-specific", re.IGNORECASE),
+)
+
 def limit_sentences(text: str, max_sentences: int) -> str:
 	"""Trim prose to at most max_sentences while preserving trailing non-prose sections."""
 	if max_sentences <= 0:
@@ -62,6 +101,31 @@ def limit_sentences(text: str, max_sentences: int) -> str:
 	return trimmed_main
 
 
+def _truncate_rag_context_for_prompt(rag_context: str, max_chars: int) -> str:
+	"""Bound prompt size by truncating retrieved context while preserving bullet-line structure."""
+	text = rag_context.strip()
+	if not text:
+		return ""
+	if max_chars <= 0 or len(text) <= max_chars:
+		return text
+
+	truncation_marker = "\n- ... (truncated for prompt budget)"
+	budget = max(64, max_chars - len(truncation_marker))
+	lines = [line for line in text.splitlines() if line.strip()]
+	kept_lines: list[str] = []
+	current = 0
+	for line in lines:
+		addition = len(line) + (1 if kept_lines else 0)
+		if current + addition > budget:
+			break
+		kept_lines.append(line)
+		current += addition
+
+	if not kept_lines:
+		return text[:budget].rstrip() + truncation_marker
+	return "\n".join(kept_lines).rstrip() + truncation_marker
+
+
 def _resolve_runtime_config() -> dict[str, object]:
 	"""Return effective runtime settings by merging env configuration with in-memory overrides."""
 	base = {
@@ -72,6 +136,8 @@ def _resolve_runtime_config() -> dict[str, object]:
 		"finetuned_model": settings.llm_finetuned_model.strip(),
 		"request_timeout_seconds": settings.llm_request_timeout_seconds,
 		"ollama_num_predict": settings.llm_ollama_num_predict,
+		"rag_context_max_chars": settings.llm_rag_context_max_chars,
+		"chat_reply_max_sentences": settings.chat_reply_max_sentences,
 		"require_rag_context": settings.llm_require_rag_context,
 		"openai_api_key": settings.openai_api_key.strip(),
 		"openai_base_url": settings.openai_base_url.strip(),
@@ -114,6 +180,8 @@ def get_llm_runtime_status() -> dict[str, object]:
 		"base_model": str(runtime.get("model", "")),
 		"request_timeout_seconds": int(runtime.get("request_timeout_seconds", settings.llm_request_timeout_seconds)),
 		"ollama_num_predict": int(runtime.get("ollama_num_predict", settings.llm_ollama_num_predict)),
+		"rag_context_max_chars": int(runtime.get("rag_context_max_chars", settings.llm_rag_context_max_chars)),
+		"chat_reply_max_sentences": int(runtime.get("chat_reply_max_sentences", settings.chat_reply_max_sentences)),
 		"finetuned_model": finetuned,
 		"active_model": _active_model_name(runtime),
 		"is_finetuned_active": bool(finetuned),
@@ -130,48 +198,134 @@ def _build_prompt(
 	base_reply: str,
 	next_step: str,
 	rag_context: str,
+	chat_reply_max_sentences: int,
 	intent_confidence: float,
 	keyword_matches: list[str],
 	user_profile_summary: str,
 ) -> str:
-	"""Build a grounded prompt that constrains the LLM to retrieved and deterministic guidance."""
+	"""Build a compact grounded prompt that minimizes template-echo behavior on local models."""
 	rag_section = rag_context.strip() or "No retrieved context."
 	intent_guidance = INTENT_PROMPT_GUIDANCE.get(intent, "Keep response concise and actionable.")
 	matches_text = ", ".join(keyword_matches) if keyword_matches else "none"
-	# The prompt is structured so the LLM acts as a grounded rewriter, not as an unconstrained generator.
+	# This is the user-content block for chat-style providers; system instructions are sent separately.
 	return (
-		f"System: {SYSTEM_PROMPT}\n"
-		"Use only the retrieved context and base guidance as source-of-truth.\n"
-		"Do not invent facts.\n"
-		f"Reply in at most {settings.chat_reply_max_sentences} short sentences.\n"
-		f"Intent-specific guidance: {intent_guidance}\n"
-		f"Detected intent: {intent}\n"
-		f"Intent confidence: {intent_confidence}\n"
-		f"User message: {message}\n"
-		f"Matched keywords: {matches_text}\n"
-		f"Profile: {user_profile_summary}\n"
-		f"Retrieved context: {rag_section}\n"
-		f"Base guidance: {base_reply}\n"
-		f"Next step: {next_step}\n"
-		"Return only the final reply text."
+		"Task: Write the final assistant reply for the user's career question.\n"
+		"Hard rules:\n"
+		"- Use only the CONTEXT and BASE_GUIDANCE below.\n"
+		"- Do not repeat section labels like 'User message' or 'Profile'.\n"
+		"- Output only final advice prose, no preface.\n"
+		"- Do not thank the user, greet the user, or mention that you are happy to help.\n"
+		"- Do not say 'I understand', 'Dear user', or similar courtesy phrases.\n"
+		f"- Limit to {chat_reply_max_sentences} short sentences.\n"
+		f"Intent guidance: {intent_guidance}\n"
+		f"QUESTION: {message}\n"
+		f"INTENT: {intent} (confidence {intent_confidence:.2f})\n"
+		f"KEYWORDS: {matches_text}\n"
+		f"PROFILE: {user_profile_summary}\n"
+		f"CONTEXT:\n{rag_section}\n"
+		f"BASE_GUIDANCE: {base_reply}\n"
+		f"NEXT_STEP_HINT: {next_step}\n"
+		"Final reply:"
+	)
+
+
+def _strip_meta_echo(text: str) -> str:
+	"""Remove common prompt-template echoes that some local models prepend."""
+	if not text.strip():
+		return text
+	cleaned_lines: list[str] = []
+	for raw_line in text.splitlines():
+		line = raw_line.strip()
+		if not line:
+			cleaned_lines.append(raw_line)
+			continue
+		lower = line.lower()
+		if any(lower.startswith(prefix) for prefix in _ECHO_PREFIXES):
+			continue
+		cleaned_lines.append(raw_line)
+	cleaned = "\n".join(cleaned_lines).strip()
+	if not cleaned:
+		return text.strip()
+
+	# Remove generic greeting salutation line if present at the beginning.
+	lines = [line for line in cleaned.splitlines() if line.strip()]
+	if lines and lines[0].strip().lower() in _SALUTATION_PREFIXES:
+		cleaned = "\n".join(lines[1:]).strip()
+
+	for pattern in _LEADING_BOILERPLATE_PATTERNS:
+		cleaned = pattern.sub("", cleaned).strip()
+
+	return cleaned or text.strip()
+
+
+def _trim_incomplete_tail(text: str) -> str:
+	"""Drop a trailing fragment when the model stops mid-sentence."""
+	stripped = text.strip()
+	if not stripped:
+		return stripped
+	if stripped[-1] in ".!?":
+		return stripped
+
+	last_sentence_end = max(stripped.rfind("."), stripped.rfind("!"), stripped.rfind("?"))
+	if last_sentence_end == -1:
+		return stripped
+	return stripped[: last_sentence_end + 1].strip()
+
+
+def _is_low_quality_generation(text: str) -> bool:
+	"""Detect generic/template-like local model output that should not replace grounded agent text."""
+	stripped = text.strip()
+	if not stripped:
+		return True
+	if len(stripped) < 60:
+		return True
+	for pattern in _LOW_QUALITY_PATTERNS:
+		if pattern.search(stripped):
+			return True
+	return False
+
+
+def _log_prompt_diagnostics(
+	*,
+	provider: str,
+	model: str,
+	original_rag_context: str,
+	prompt_rag_context: str,
+	prompt: str,
+	runtime: dict[str, object],
+) -> None:
+	"""Emit compact prompt diagnostics to debug local model latency and fallbacks."""
+	logger.info(
+		"LLM prompt diagnostics provider=%s model=%s prompt_chars=%s rag_chars_original=%s rag_chars_prompt=%s timeout_seconds=%s num_predict=%s",
+		provider,
+		model,
+		len(prompt),
+		len(original_rag_context.strip()),
+		len(prompt_rag_context.strip()),
+		int(runtime.get("request_timeout_seconds", settings.llm_request_timeout_seconds)),
+		int(runtime.get("ollama_num_predict", settings.llm_ollama_num_predict)),
 	)
 
 
 def _call_ollama(prompt: str, runtime: dict[str, object]) -> Optional[str]:
-	"""Call a local Ollama-compatible generate endpoint and return refined text."""
-	url = f"{str(runtime.get('base_url', '')).rstrip('/')}/api/generate"
+	"""Call a local Ollama chat endpoint and return refined text."""
+	url = f"{str(runtime.get('base_url', '')).rstrip('/')}/api/chat"
 	num_predict = max(24, min(256, int(runtime.get("ollama_num_predict", settings.llm_ollama_num_predict))))
 	payload = {
 		"model": _active_model_name(runtime),
-		"prompt": prompt,
+		"messages": [
+			{"role": "system", "content": SYSTEM_PROMPT},
+			{"role": "user", "content": prompt},
+		],
 		"stream": False,
 		"keep_alive": "10m",
 		"options": {
 			"num_predict": num_predict,
-			"temperature": 0.2,
+			"temperature": 0.1,
 		},
 	}
 
+	start_time = perf_counter()
 	response = requests.post(
 		url,
 		json=payload,
@@ -179,7 +333,16 @@ def _call_ollama(prompt: str, runtime: dict[str, object]) -> Optional[str]:
 	)
 	response.raise_for_status()
 	data = response.json()
-	return str(data.get("response", "")).strip() or None
+	message = data.get("message") or {}
+	content = str(message.get("content", "")).strip()
+	logger.info(
+		"Ollama generate completed model=%s elapsed_ms=%s response_chars=%s done=%s",
+		_active_model_name(runtime),
+		int((perf_counter() - start_time) * 1000),
+		len(content),
+		data.get("done"),
+	)
+	return content or None
 
 
 def _call_openai_compatible(prompt: str, runtime: dict[str, object], *, fallback_mode: bool = False) -> Optional[str]:
@@ -207,7 +370,7 @@ def _call_openai_compatible(prompt: str, runtime: dict[str, object], *, fallback
 			{"role": "system", "content": SYSTEM_PROMPT},
 			{"role": "user", "content": prompt},
 		],
-		"temperature": 0.2,
+		"temperature": 0.1,
 		"max_tokens": 260,
 	}
 
@@ -241,21 +404,39 @@ def generate_llm_reply(
 	runtime = _resolve_runtime_config()
 	# These early returns make runtime behavior explicit: disabled or no RAG context means no LLM call.
 	if not bool(runtime.get("enabled", False)):
+		logger.info("LLM refinement skipped because runtime is disabled")
 		return None
 	if bool(runtime.get("require_rag_context", True)) and not rag_context.strip():
+		logger.info("LLM refinement skipped because RAG context is required and retrieval returned empty context")
 		return None
+
+	prompt_rag_context = _truncate_rag_context_for_prompt(
+		rag_context,
+		int(runtime.get("rag_context_max_chars", settings.llm_rag_context_max_chars)),
+	)
+	reply_max_sentences = int(runtime.get("chat_reply_max_sentences", settings.chat_reply_max_sentences))
 
 	prompt = _build_prompt(
 		message,
 		intent,
 		base_reply,
 		next_step,
-		rag_context,
+		prompt_rag_context,
+		reply_max_sentences,
 		intent_confidence,
 		keyword_matches or [],
 		user_profile_summary,
 	)
 	provider = str(runtime.get("provider", "ollama")).lower().strip()
+	model_name = _active_model_name(runtime)
+	_log_prompt_diagnostics(
+		provider=provider,
+		model=model_name,
+		original_rag_context=rag_context,
+		prompt_rag_context=prompt_rag_context,
+		prompt=prompt,
+		runtime=runtime,
+	)
 
 	try:
 		llm_text: Optional[str] = None
@@ -272,17 +453,26 @@ def generate_llm_reply(
 			llm_text = _call_openai_compatible(prompt, runtime, fallback_mode=True)
 
 		if not llm_text:
+			logger.info("LLM refinement produced no text response after provider call")
 			return None
-		filtered = apply_safety_filter(llm_text)
+		candidate_text = _trim_incomplete_tail(_strip_meta_echo(llm_text))
+		if _is_low_quality_generation(candidate_text):
+			logger.info("LLM refinement rejected low-quality/template-like response")
+			return None
+		filtered = apply_safety_filter(candidate_text)
 		if filtered.blocked:
+			logger.info("LLM refinement blocked by safety filter (reason=%s)", filtered.reason)
 			return filtered.text  # return fallback message, not None, so it reaches the user
-		return limit_sentences(filtered.text, settings.chat_reply_max_sentences) or None
+		logger.info("LLM refinement accepted response_chars=%s", len(filtered.text.strip()))
+		return limit_sentences(filtered.text, reply_max_sentences) or None
 	except ReadTimeout:
 		logger.warning(
-			"LLM request timed out after %s seconds for provider=%s model=%s",
+			"LLM request timed out after %s seconds for provider=%s model=%s prompt_chars=%s rag_chars_prompt=%s",
 			runtime.get("request_timeout_seconds", settings.llm_request_timeout_seconds),
 			provider,
-			_active_model_name(runtime),
+			model_name,
+			len(prompt),
+			len(prompt_rag_context.strip()),
 		)
 		if provider == "ollama" and bool(runtime.get("auto_fallback_to_openai", False)):
 			try:
@@ -291,7 +481,7 @@ def generate_llm_reply(
 					filtered = apply_safety_filter(llm_text)
 					if filtered.blocked:
 						return filtered.text
-					return limit_sentences(filtered.text, settings.chat_reply_max_sentences) or None
+					return limit_sentences(filtered.text, reply_max_sentences) or None
 			except Exception:
 				logger.warning("Fallback to openai after timeout failed", exc_info=True)
 		return None
@@ -304,7 +494,7 @@ def generate_llm_reply(
 					filtered = apply_safety_filter(llm_text)
 					if filtered.blocked:
 						return filtered.text
-					return limit_sentences(filtered.text, settings.chat_reply_max_sentences) or None
+					return limit_sentences(filtered.text, reply_max_sentences) or None
 			except Exception:
 				logger.warning("Fallback to openai failed", exc_info=True)
 		logger.warning("LLM refinement request failed", exc_info=True)

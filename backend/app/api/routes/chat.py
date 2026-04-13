@@ -25,8 +25,10 @@ from app.services.rag_service import build_rag_context, get_rag_citations
 from app.services.psychometric_service import save_user_psychometric_profile
 from app.schemas.psychometric import PsychometricRequest
 from app.config import settings
+from app.utils.logger import get_logger
 
 router = APIRouter()
+logger = get_logger(__name__)
 
 
 @router.post("/message", response_model=ChatResponse)
@@ -77,6 +79,13 @@ async def send_message(payload: ChatRequest) -> ChatResponse:
 	if rag_context:
 		response_source = "agent_rag_llm" if llm_used else "agent_rag"
 	response_time_ms = int((perf_counter() - start_time) * 1000)
+	logger.info(
+		"Chat response assembled source=%s llm_used=%s enhanced_reply_chars=%s final_reply_chars=%s",
+		response_source,
+		llm_used,
+		len((enhanced_reply or "").strip()),
+		len(final_reply.strip()),
+	)
 
 	await append_message(
 		payload.user_id,
@@ -163,6 +172,13 @@ async def send_message_me(
 	if rag_context:
 		response_source = "agent_rag_llm" if llm_used else "agent_rag"
 	response_time_ms = int((perf_counter() - start_time) * 1000)
+	logger.info(
+		"Chat response assembled source=%s llm_used=%s enhanced_reply_chars=%s final_reply_chars=%s",
+		response_source,
+		llm_used,
+		len((enhanced_reply or "").strip()),
+		len(final_reply.strip()),
+	)
 
 	await append_message(
 		current_user.id,

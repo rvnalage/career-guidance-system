@@ -54,6 +54,7 @@ class Settings(BaseSettings):
 	llm_request_timeout_seconds: int = Field(default=15, alias="LLM_REQUEST_TIMEOUT_SECONDS")
 	llm_require_rag_context: bool = Field(default=True, alias="LLM_REQUIRE_RAG_CONTEXT")
 	llm_ollama_num_predict: int = Field(default=96, alias="LLM_OLLAMA_NUM_PREDICT")
+	llm_rag_context_max_chars: int = Field(default=1400, alias="LLM_RAG_CONTEXT_MAX_CHARS")
 	chat_reply_max_sentences: int = Field(default=8, alias="CHAT_REPLY_MAX_SENTENCES")
 	intent_min_confidence: float = Field(default=0.35, alias="INTENT_MIN_CONFIDENCE")
 	intent_model_enabled: bool = Field(default=False, alias="INTENT_MODEL_ENABLED")
