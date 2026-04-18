@@ -15,6 +15,9 @@ const defaultConfig = {
     auto_fallback_to_openai: false,
     openai_base_url: "https://api.openai.com/v1",
     openai_model: "gpt-4o-mini",
+    openai_max_tokens: 260,
+    groq_model: "llama-3.1-8b-instant",
+    groq_max_tokens: 512,
 };
 
 function SettingsPage() {
@@ -43,6 +46,9 @@ function SettingsPage() {
             auto_fallback_to_openai: Boolean(data.auto_fallback_to_openai),
             openai_base_url: data.openai_base_url || defaultConfig.openai_base_url,
             openai_model: data.openai_model || defaultConfig.openai_model,
+            openai_max_tokens: Number(data.openai_max_tokens || defaultConfig.openai_max_tokens),
+            groq_model: data.groq_model || defaultConfig.groq_model,
+            groq_max_tokens: Number(data.groq_max_tokens || defaultConfig.groq_max_tokens),
         });
     };
 
@@ -103,6 +109,9 @@ function SettingsPage() {
                 auto_fallback_to_openai: config.auto_fallback_to_openai,
                 openai_base_url: config.openai_base_url,
                 openai_model: config.openai_model,
+                openai_max_tokens: Number(config.openai_max_tokens) || defaultConfig.openai_max_tokens,
+                groq_model: config.groq_model,
+                groq_max_tokens: Number(config.groq_max_tokens) || defaultConfig.groq_max_tokens,
             };
             const response = await apiClient.post("/llm/config", payload);
             hydrateFromStatus(response.data || {});
@@ -159,7 +168,7 @@ function SettingsPage() {
     return (
         <section className="card settings-layout">
             <div className="settings-header">
-                <h2>Settings</h2>
+                <h2 className="page-heading-row"><span className="page-heading-symbol" aria-hidden="true">⚙️</span>Settings</h2>
                 <p className="muted-text">Manage runtime model controls and retrieval (RAG) knowledge operations.</p>
             </div>
 
@@ -186,27 +195,110 @@ function SettingsPage() {
                     Provider
                     <select value={config.provider} onChange={(event) => updateField("provider", event.target.value)}>
                         <option value="ollama">ollama (local)</option>
+                        <option value="groq">groq (cloud, fast)</option>
                         <option value="openai">openai (cloud)</option>
                     </select>
                 </label>
 
-                <label>
-                    Active Base URL
-                    <input
-                        value={config.base_url}
-                        onChange={(event) => updateField("base_url", event.target.value)}
-                        placeholder="http://localhost:11434 or https://api.openai.com/v1"
-                    />
-                </label>
+                {/* Ollama-specific fields */}
+                {config.provider === "ollama" && (
+                    <>
+                        <label>
+                            Ollama Base URL
+                            <input
+                                value={config.base_url}
+                                onChange={(event) => updateField("base_url", event.target.value)}
+                                placeholder="http://localhost:11434"
+                            />
+                        </label>
+                        <label>
+                            Ollama Model
+                            <input
+                                value={config.model}
+                                onChange={(event) => updateField("model", event.target.value)}
+                                placeholder="tinyllama:latest"
+                            />
+                        </label>
+                        <label>
+                            Ollama Max Predict Tokens
+                            <input
+                                type="number"
+                                min="24"
+                                max="256"
+                                value={config.ollama_num_predict}
+                                onChange={(event) => updateField("ollama_num_predict", event.target.value)}
+                            />
+                        </label>
+                    </>
+                )}
 
-                <label>
-                    Base Model
-                    <input
-                        value={config.model}
-                        onChange={(event) => updateField("model", event.target.value)}
-                        placeholder="tinyllama:latest or gpt-4o-mini"
-                    />
-                </label>
+                {/* Groq-specific fields */}
+                {config.provider === "groq" && (
+                    <>
+                        <label>
+                            Groq Model
+                            <input
+                                value={config.groq_model}
+                                onChange={(event) => updateField("groq_model", event.target.value)}
+                                placeholder="llama-3.1-8b-instant"
+                            />
+                        </label>
+                        <label>
+                            Groq Max Tokens
+                            <input
+                                type="number"
+                                min="64"
+                                max="4096"
+                                value={config.groq_max_tokens}
+                                onChange={(event) => updateField("groq_max_tokens", event.target.value)}
+                            />
+                        </label>
+                        <div className="settings-effective-model">
+                            <span className="settings-effective-label">GROQ_API_KEY</span>
+                            <strong className="settings-effective-value">
+                                {runtimeStatus?.groq_api_key_configured ? "✓ configured" : "✗ missing — set GROQ_API_KEY env var"}
+                            </strong>
+                        </div>
+                    </>
+                )}
+
+                {/* OpenAI-specific fields */}
+                {config.provider === "openai" && (
+                    <>
+                        <label>
+                            OpenAI Base URL
+                            <input
+                                value={config.openai_base_url}
+                                onChange={(event) => updateField("openai_base_url", event.target.value)}
+                                placeholder="https://api.openai.com/v1"
+                            />
+                        </label>
+                        <label>
+                            OpenAI Model
+                            <input
+                                value={config.openai_model}
+                                onChange={(event) => updateField("openai_model", event.target.value)}
+                                placeholder="gpt-4o-mini"
+                            />
+                        </label>
+                        <label>
+                            OpenAI Max Tokens
+                            <input
+                                type="number"
+                                min="64"
+                                max="2048"
+                                value={config.openai_max_tokens}
+                                onChange={(event) => updateField("openai_max_tokens", event.target.value)}
+                            />
+                        </label>
+                        <div className="settings-effective-model">
+                            <span className="settings-effective-label">OPENAI_API_KEY</span>
+                            <strong className="settings-effective-value">
+                                {runtimeStatus?.openai_api_key_configured ? "✓ configured" : "✗ missing — set OPENAI_API_KEY env var"}
+                            </strong>
+                        </div>
+                    </>
+                )}
 
                 {runtimeStatus ? (
                     <div className="settings-effective-model">
@@ -232,17 +324,6 @@ function SettingsPage() {
                 </label>
 
                 <label>
-                    Ollama Max Predict Tokens
-                    <input
-                        type="number"
-                        min="24"
-                        max="256"
-                        value={config.ollama_num_predict}
-                        onChange={(event) => updateField("ollama_num_predict", event.target.value)}
-                    />
-                </label>
-
-                <label>
                     Reply Sentence Cap
                     <input
                         type="number"
@@ -262,35 +343,37 @@ function SettingsPage() {
                     <span>Require RAG context before LLM call</span>
                 </label>
 
-                <fieldset className="settings-fallback">
-                    <legend>Fallback from local to cloud</legend>
-                    <label className="settings-check">
-                        <input
-                            type="checkbox"
-                            checked={config.auto_fallback_to_openai}
-                            onChange={(event) => updateField("auto_fallback_to_openai", event.target.checked)}
-                        />
-                        <span>When ollama fails, retry with OpenAI-compatible endpoint</span>
-                    </label>
+                {config.provider === "ollama" && (
+                    <fieldset className="settings-fallback">
+                        <legend>Fallback from local to cloud</legend>
+                        <label className="settings-check">
+                            <input
+                                type="checkbox"
+                                checked={config.auto_fallback_to_openai}
+                                onChange={(event) => updateField("auto_fallback_to_openai", event.target.checked)}
+                            />
+                            <span>When ollama fails, retry with OpenAI-compatible endpoint</span>
+                        </label>
 
-                    <label>
-                        Fallback Cloud Base URL
-                        <input
-                            value={config.openai_base_url}
-                            onChange={(event) => updateField("openai_base_url", event.target.value)}
-                            placeholder="https://api.openai.com/v1"
-                        />
-                    </label>
+                        <label>
+                            Fallback Cloud Base URL
+                            <input
+                                value={config.openai_base_url}
+                                onChange={(event) => updateField("openai_base_url", event.target.value)}
+                                placeholder="https://api.openai.com/v1"
+                            />
+                        </label>
 
-                    <label>
-                        Fallback Cloud Model
-                        <input
-                            value={config.openai_model}
-                            onChange={(event) => updateField("openai_model", event.target.value)}
-                            placeholder="gpt-4o-mini"
-                        />
-                    </label>
-                </fieldset>
+                        <label>
+                            Fallback Cloud Model
+                            <input
+                                value={config.openai_model}
+                                onChange={(event) => updateField("openai_model", event.target.value)}
+                                placeholder="gpt-4o-mini"
+                            />
+                        </label>
+                    </fieldset>
+                )}
 
                 <div className="settings-actions">
                     <button className="button" type="submit" disabled={saving || loading}>
@@ -328,8 +411,12 @@ function SettingsPage() {
                     <div className="metric-item"><span>Request timeout</span>{runtimeStatus?.request_timeout_seconds ?? "-"}</div>
                     <div className="metric-item"><span>Ollama max predict</span>{runtimeStatus?.ollama_num_predict ?? "-"}</div>
                     <div className="metric-item"><span>Sentence cap</span>{runtimeStatus?.chat_reply_max_sentences ?? "-"}</div>
+                    {runtimeStatus?.provider === "openai" && <div className="metric-item"><span>OpenAI max tokens</span>{runtimeStatus?.openai_max_tokens ?? "-"}</div>}
+                    {runtimeStatus?.provider === "groq" && <div className="metric-item"><span>Groq max tokens</span>{runtimeStatus?.groq_max_tokens ?? "-"}</div>}
                     <div className="metric-item"><span>Runtime override</span>{runtimeStatus?.runtime_override_active ? "active" : "env default"}</div>
                     <div className="metric-item"><span>OPENAI_API_KEY</span>{runtimeStatus?.openai_api_key_configured ? "configured" : "missing"}</div>
+                    <div className="metric-item"><span>GROQ_API_KEY</span>{runtimeStatus?.groq_api_key_configured ? "configured" : "missing"}</div>
+                    {runtimeStatus?.provider === "groq" && <div className="metric-item"><span>Groq model</span>{runtimeStatus?.groq_model || "-"}</div>}
                 </div>
             </div>
         </section >

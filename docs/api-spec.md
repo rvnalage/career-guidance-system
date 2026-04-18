@@ -366,6 +366,29 @@ Submit feedback on a given recommendation.
 
 ---
 
+### `GET /recommendations/feedback/me` 🔒
+
+Retrieve stored recommendation feedback entries for the authenticated user (newest first).
+
+**Response `200`**
+```json
+{
+  "user_id": "550e8400-...",
+  "feedback": [
+    {
+      "user_id": "550e8400-...",
+      "role": "Data Scientist",
+      "helpful": false,
+      "rating": 2,
+      "feedback_tags": ["clarity", "relevance"],
+      "created_at": "2026-04-19T11:32:10Z"
+    }
+  ]
+}
+```
+
+---
+
 ### `GET /recommendations/xai/status` 🔒
 
 Check which XAI method is active at runtime and feature set details.
@@ -715,14 +738,14 @@ Semantic search over the knowledge base with optional metadata filters.
 
 ### `GET /market/jobs`
 
-Fetch live remote job listings from the Remotive API.
+Fetch remote job listings via async HTTP calls with a short in-memory TTL cache and graceful fallback.
 
 **Query parameters**
 
 | Parameter | Type | Required | Default | Notes |
 |-----------|------|----------|---------|-------|
 | `search` | string | — | `"data"` | Job search keyword |
-| `limit` | int | — | `10` | Max results to return |
+| `limit` | int | — | `10` | Max results to return (clamped to 1..50) |
 
 **Response `200`**
 ```json
@@ -742,13 +765,15 @@ Fetch live remote job listings from the Remotive API.
 }
 ```
 
+`source` is `"remotive"` when live API data is returned and `"fallback"` when deterministic sample jobs are used.
+
 ---
 
 ## 12. LLM Runtime — `/api/v1/llm`
 
 ### `GET /llm/status`
 
-Inspect LLM runtime configuration, safety filter status, and fine-tuned model availability.
+Inspect effective LLM runtime configuration for provider, model selection, and runtime overrides.
 
 **Response `200`**
 ```json
@@ -761,37 +786,55 @@ Inspect LLM runtime configuration, safety filter status, and fine-tuned model av
   "finetuned_model": "tinyllama:finetuned",
   "active_model": "tinyllama:finetuned",
   "is_finetuned_active": true,
-  "safety_filter_enabled": true,
-  "safety_filter_mode": "strict",
+  "request_timeout_seconds": 15,
+  "ollama_num_predict": 128,
   "rag_context_max_chars": 1400,
-  "cache_enabled": true
+  "chat_reply_max_sentences": 8,
+  "auto_fallback_to_openai": true,
+  "openai_base_url": "https://api.openai.com/v1",
+  "openai_model": "gpt-4o-mini",
+  "openai_max_tokens": 260,
+  "openai_api_key_configured": false,
+  "groq_model": "llama-3.1-8b-instant",
+  "groq_max_tokens": 512,
+  "groq_api_key_configured": false,
+  "runtime_override_active": false
 }
 ```
 
 | Field | Notes |
 |-------|-------|
-| `enabled` | LLM post-processing active (Ollama running) |
-| `finetuned_model` | Path to fine-tuned adapter if available; loaded when set and `active_model` points to it |
-| `safety_filter_enabled` | 3-layer safety (harmful block → off-topic redirect → repetition guard) |
-| `rag_context_max_chars` | Max chars from RAG context to include in LLM prompt (prevents token overflow) |
+| `provider` | `ollama`, `openai`, or `groq` |
+| `active_model` | Provider-aware resolved model used for calls |
+| `is_finetuned_active` | True only when provider is `ollama` and `finetuned_model` is set |
+| `runtime_override_active` | True when runtime config has in-memory overrides via `/llm/config` |
 
-### `POST /llm/config` 🔒
+### `POST /llm/config`
 
 Update LLM runtime configuration at runtime (no restart required).
 
 **Request body**
 ```json
 {
-  "llm_enabled": true,
-  "rag_enabled": true,
-  "safety_filter_enabled": true,
-  "cache_enabled": false
+  "enabled": true,
+  "provider": "groq",
+  "request_timeout_seconds": 20,
+  "rag_context_max_chars": 1200,
+  "chat_reply_max_sentences": 8,
+  "openai_model": "gpt-4o-mini",
+  "openai_max_tokens": 260,
+  "groq_model": "llama-3.1-8b-instant",
+  "groq_max_tokens": 512
 }
 ```
 
+Validation notes:
+- Unsupported providers/models return `422`.
+- Numeric fields are clamped to safe ranges (`request_timeout_seconds`, `ollama_num_predict`, `openai_max_tokens`, `groq_max_tokens`, `chat_reply_max_sentences`).
+
 **Response `200`** — same as `/llm/status`.
 
-### `POST /llm/config/reset` 🔒
+### `POST /llm/config/reset`
 
 Reset LLM config to environment defaults.
 

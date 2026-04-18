@@ -71,7 +71,7 @@ career-guidance-system/
 - `RAG_TOP_K` (retrieved chunk count)
 - `RAG_CANDIDATE_POOL_SIZE` (candidate count before reranking)
 - `LLM_ENABLED` (set `true` to enable local LLaMA responses)
-- `LLM_PROVIDER` (currently `ollama`)
+- `LLM_PROVIDER` (`ollama`, `openai`, or `groq`)
 - `LLM_BASE_URL` (default `http://localhost:11434`)
 - `LLM_MODEL` (example `tinyllama:latest` in template, `llama3.1:8b` in code defaults)
 - `LLM_FINETUNED_MODEL` (optional, overrides base model when set)
@@ -79,6 +79,8 @@ career-guidance-system/
 - `CHAT_REPLY_MAX_SENTENCES` (hard cap applied to final reply text; default `8`)
 - `LLM_RAG_CONTEXT_MAX_CHARS` (caps retrieved context size included in LLM prompt; default `1400`)
 - `LLM_REQUIRE_RAG_CONTEXT` (if `true`, LLM enhancement runs only when RAG context exists)
+- `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENAI_MAX_TOKENS`
+- `GROQ_API_KEY`, `GROQ_MODEL`, `GROQ_MAX_TOKENS`
 
 ### Frontend
 
@@ -143,6 +145,7 @@ Base prefix: `/api/v1`
   - `POST /recommendations/generate`
   - `POST /recommendations/explain/me`
   - `POST /recommendations/feedback/me`
+  - `GET /recommendations/feedback/me`
   - `GET /recommendations/xai/status`
   - `GET /recommendations/history/me`
   - `DELETE /recommendations/history/me`

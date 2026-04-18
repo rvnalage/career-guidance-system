@@ -413,7 +413,7 @@ Input: User Message
 ```python
 # Simplified decision tree
 
-if not llm_enabled:
+if not runtime_enabled:
     return agent_reply_only  # No LLM call
     
 elif require_rag_context and not rag_context:
@@ -441,7 +441,7 @@ This prevents the LLM from hallucinating when there's no ground truth.
 ```env
 # LLM Control
 LLM_ENABLED=true
-LLM_PROVIDER=ollama                    # or "openai"
+LLM_PROVIDER=ollama                    # or "openai" / "groq"
 LLM_BASE_URL=http://localhost:11434    # Ollama endpoint
 
 # RAG Gating
@@ -459,8 +459,18 @@ LLM_REQUEST_TIMEOUT_SECONDS=60
 OPENAI_API_KEY=sk-...
 OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4o-mini
+OPENAI_MAX_TOKENS=260
+
+# Groq (Cloud)
+GROQ_API_KEY=gsk-...
+GROQ_MODEL=llama-3.1-8b-instant
+GROQ_MAX_TOKENS=512
+
+# Optional fallback
 LLM_AUTO_FALLBACK_TO_OPENAI=false      # Fallback if Ollama fails
 ```
+
+Runtime overrides can be updated in-memory through `POST /api/v1/llm/config` using payload fields such as `enabled`, `provider`, `openai_model`, `openai_max_tokens`, `groq_model`, and `groq_max_tokens`.
 
 ---
 

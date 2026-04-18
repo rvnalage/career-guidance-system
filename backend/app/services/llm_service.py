@@ -23,6 +23,20 @@ logger = get_logger(__name__)
 
 _runtime_overrides: dict[str, object] = {}
 
+_SUPPORTED_PROVIDERS = {"ollama", "groq", "openai"}
+_DEFAULT_OPENAI_MODELS = {
+	"gpt-4o-mini",
+	"gpt-4o",
+	"gpt-4.1-mini",
+	"gpt-4.1",
+}
+_DEFAULT_GROQ_MODELS = {
+	"llama-3.1-8b-instant",
+	"llama-3.3-70b-versatile",
+	"mixtral-8x7b-32768",
+	"gemma2-9b-it",
+}
+
 
 SYSTEM_PROMPT = (
 	"You are a concise career guidance assistant for MTech students."
@@ -142,18 +156,86 @@ def _resolve_runtime_config() -> dict[str, object]:
 		"openai_api_key": settings.openai_api_key.strip(),
 		"openai_base_url": settings.openai_base_url.strip(),
 		"openai_model": settings.openai_model.strip(),
+		"openai_max_tokens": settings.openai_max_tokens,
 		"groq_api_key": settings.groq_api_key.strip(),
 		"groq_model": settings.groq_model.strip(),
+		"groq_max_tokens": settings.groq_max_tokens,
 		"auto_fallback_to_openai": settings.llm_auto_fallback_to_openai,
 	}
 	base.update(_runtime_overrides)
 	return base
 
 
+def _allowed_openai_models() -> set[str]:
+	"""Return the allowlisted OpenAI models accepted by runtime config updates."""
+	allowed = set(_DEFAULT_OPENAI_MODELS)
+	configured = settings.openai_model.strip()
+	if configured:
+		allowed.add(configured)
+	return allowed
+
+
+def _allowed_groq_models() -> set[str]:
+	"""Return the allowlisted Groq models accepted by runtime config updates."""
+	allowed = set(_DEFAULT_GROQ_MODELS)
+	configured = settings.groq_model.strip()
+	if configured:
+		allowed.add(configured)
+	return allowed
+
+
+def validate_llm_runtime_config_updates(updates: dict[str, object]) -> dict[str, object]:
+	"""Validate and normalize runtime config updates before applying provider-aware in-memory overrides."""
+	validated = dict(updates)
+	provider = str(validated.get("provider", _resolve_runtime_config().get("provider", "ollama"))).strip().lower()
+	if provider not in _SUPPORTED_PROVIDERS:
+		raise ValueError(f"Unsupported provider '{provider}'. Allowed providers: {', '.join(sorted(_SUPPORTED_PROVIDERS))}.")
+	validated["provider"] = provider
+
+	if "request_timeout_seconds" in validated:
+		validated["request_timeout_seconds"] = max(5, min(300, int(validated["request_timeout_seconds"])))
+	if "chat_reply_max_sentences" in validated:
+		validated["chat_reply_max_sentences"] = max(1, min(20, int(validated["chat_reply_max_sentences"])))
+	if "ollama_num_predict" in validated:
+		validated["ollama_num_predict"] = max(24, min(600, int(validated["ollama_num_predict"])))
+	if "openai_max_tokens" in validated:
+		validated["openai_max_tokens"] = max(64, min(2048, int(validated["openai_max_tokens"])))
+	if "groq_max_tokens" in validated:
+		validated["groq_max_tokens"] = max(64, min(4096, int(validated["groq_max_tokens"])))
+
+	if "openai_model" in validated:
+		model_name = str(validated["openai_model"]).strip()
+		if model_name not in _allowed_openai_models():
+			raise ValueError(f"Unsupported OpenAI model '{model_name}'.")
+		validated["openai_model"] = model_name
+
+	if "groq_model" in validated:
+		model_name = str(validated["groq_model"]).strip()
+		if model_name not in _allowed_groq_models():
+			raise ValueError(f"Unsupported Groq model '{model_name}'.")
+		validated["groq_model"] = model_name
+
+	if provider == "openai" and "model" in validated:
+		validated["model"] = str(validated["model"]).strip()
+	if provider == "groq" and "model" in validated:
+		validated["model"] = str(validated["model"]).strip()
+	if provider == "ollama" and "model" in validated:
+		validated["model"] = str(validated["model"]).strip()
+
+	return validated
+
+
 def _active_model_name(runtime: dict[str, object]) -> str:
-	"""Resolve active model for the current provider call path."""
+	"""Resolve active model for the selected provider (ollama finetune, groq model, or openai model)."""
+	provider = str(runtime.get("provider", "ollama")).strip().lower()
 	finetuned = str(runtime.get("finetuned_model", "")).strip()
-	return finetuned or str(runtime.get("model", "")).strip()
+	if provider == "ollama" and finetuned:
+		return finetuned
+	if provider == "groq":
+		return str(runtime.get("groq_model", "")).strip()
+	if provider == "openai":
+		return str(runtime.get("openai_model", "")).strip()
+	return str(runtime.get("model", "")).strip()
 
 
 def update_llm_runtime_config(updates: dict[str, object]) -> dict[str, object]:
@@ -172,11 +254,14 @@ def reset_llm_runtime_config() -> dict[str, object]:
 def get_llm_runtime_status() -> dict[str, object]:
 	"""Expose runtime LLM settings for diagnostics and environment verification."""
 	runtime = _resolve_runtime_config()
+	provider = str(runtime.get("provider", "ollama")).strip().lower()
 	finetuned = str(runtime.get("finetuned_model", "")).strip()
+	ollama_finetuned_active = provider == "ol +-
+	-lama" and bool(finetuned)
 	return {
 		"enabled": bool(runtime.get("enabled", False)),
 		"require_rag_context": bool(runtime.get("require_rag_context", True)),
-		"provider": str(runtime.get("provider", "ollama")),
+		"provider": provider,
 		"base_url": str(runtime.get("base_url", "")),
 		"openai_api_key_configured": bool(str(runtime.get("openai_api_key", "")).strip()),
 		"base_model": str(runtime.get("model", "")),
@@ -186,10 +271,14 @@ def get_llm_runtime_status() -> dict[str, object]:
 		"chat_reply_max_sentences": int(runtime.get("chat_reply_max_sentences", settings.chat_reply_max_sentences)),
 		"finetuned_model": finetuned,
 		"active_model": _active_model_name(runtime),
-		"is_finetuned_active": bool(finetuned),
+		"is_finetuned_active": ollama_finetuned_active,
 		"auto_fallback_to_openai": bool(runtime.get("auto_fallback_to_openai", False)),
 		"openai_base_url": str(runtime.get("openai_base_url", "")),
 		"openai_model": str(runtime.get("openai_model", "")),
+		"openai_max_tokens": int(runtime.get("openai_max_tokens", settings.openai_max_tokens)),
+		"groq_model": str(runtime.get("groq_model", "")),
+		"groq_max_tokens": int(runtime.get("groq_max_tokens", settings.groq_max_tokens)),
+		"groq_api_key_configured": bool(str(runtime.get("groq_api_key", "")).strip()),
 		"runtime_override_active": bool(_runtime_overrides),
 	}
 
@@ -373,7 +462,7 @@ def _call_openai_compatible(prompt: str, runtime: dict[str, object], *, fallback
 			{"role": "user", "content": prompt},
 		],
 		"temperature": 0.1,
-		"max_tokens": 260,
+		"max_tokens": max(64, min(2048, int(runtime.get("openai_max_tokens", settings.openai_max_tokens)))),
 	}
 
 	response = requests.post(
@@ -411,7 +500,7 @@ def _call_groq(prompt: str, runtime: dict[str, object]) -> Optional[str]:
 			{"role": "user", "content": prompt},
 		],
 		"temperature": 0.1,
-		"max_tokens": 512,
+		"max_tokens": max(64, min(4096, int(runtime.get("groq_max_tokens", settings.groq_max_tokens)))),
 	}
 
 	start_time = perf_counter()

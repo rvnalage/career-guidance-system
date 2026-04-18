@@ -225,8 +225,8 @@ Tests LLM runtime configuration, fine-tuned model loading, and safety filter beh
 
 | Test | Scenario | Assertions |
 |------|----------|-----------|
-| `test_llm_status_endpoint` | `GET /llm/status` | Returns `enabled`, `provider`, `safety_filter_enabled`, `active_model` |
-| `test_llm_config_update_endpoint` | `POST /llm/config` with `llm_enabled=false` | Next status reflects change; no HTTP restart required |
+| `test_llm_status_endpoint` | `GET /llm/status` | Returns `enabled`, `provider`, `active_model`, and provider token settings |
+| `test_llm_config_update_endpoint` | `POST /llm/config` with `enabled=false` | Next status reflects change; no HTTP restart required |
 | `test_llm_config_reset_endpoint` | `POST /llm/config/reset` | Config reverts to env defaults |
 | `test_safety_filter_blocks_harmful_content` | Query with harmful intent, LLM enabled | Reply redirects to system message instead of harmful content |
 | `test_safety_filter_redirects_offtopic` | Query about unrelated topic | Reply contains redirect prompt ("Could you rephrase in terms of career goals...") |

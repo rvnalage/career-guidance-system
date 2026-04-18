@@ -22,6 +22,7 @@ from app.services.recommendation_service import (
 	generate_career_recommendations,
 	get_personalization_profile,
 	get_recommendation_history,
+	get_recommendation_feedback,
 	save_recommendation_feedback,
 	save_recommendation_snapshot,
 )
@@ -91,6 +92,15 @@ async def recommendation_feedback_me(
 	"""Store structured user feedback to support future recommendation personalization."""
 	await save_recommendation_feedback(current_user.id, payload)
 	return {"user_id": current_user.id, "message": "Feedback recorded"}
+
+
+@router.get("/feedback/me")
+async def get_recommendation_feedback_me(
+	current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object]:
+	"""Return the authenticated user's stored recommendation feedback entries."""
+	items = await get_recommendation_feedback(current_user.id)
+	return {"user_id": current_user.id, "feedback": items}
 
 
 @router.get("/xai/status")

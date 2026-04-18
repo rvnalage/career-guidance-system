@@ -298,6 +298,20 @@ async def clear_recommendation_history(user_id: str) -> int:
 	return deleted_count
 
 
+async def get_recommendation_feedback(user_id: str) -> list[dict]:
+	"""Return all stored feedback entries for a user in newest-first order."""
+	try:
+		collection = get_feedback_collection()
+		cursor = collection.find({"user_id": user_id}).sort("created_at", -1)
+		items = await cursor.to_list(length=500)
+		for item in items:
+			item.pop("_id", None)
+		return items
+	except Exception:
+		logger.exception("Failed to load recommendation feedback for user_id=%s", user_id)
+		return list(reversed(_feedback_fallback.get(user_id, [])))
+
+
 async def save_recommendation_feedback(user_id: str, payload: RecommendationFeedbackRequest) -> dict:
 	"""Store user feedback used later to personalize recommendation scoring weights."""
 	document = {

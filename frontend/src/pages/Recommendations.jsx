@@ -86,6 +86,8 @@ function RecommendationsPage({ isAuthenticated }) {
         }
     };
 
+    const [feedbackSubmitted, setFeedbackSubmitted] = useState({});
+
     const submitRecommendationFeedback = async (role, helpful) => {
         try {
             await apiClient.post("/recommendations/feedback/me", {
@@ -94,6 +96,7 @@ function RecommendationsPage({ isAuthenticated }) {
                 rating: helpful ? 5 : 2,
                 feedback_tags: ["clarity", "relevance"],
             });
+            setFeedbackSubmitted((prev) => ({ ...prev, [role]: helpful ? "helpful" : "not_helpful" }));
         } catch (err) {
             setError(err.response?.data?.detail || "Could not submit feedback");
         }
@@ -134,7 +137,7 @@ function RecommendationsPage({ isAuthenticated }) {
     return (
         <section className="dashboard-stack">
             <section className="card">
-                <h1>🎯 Career Recommendations</h1>
+                <h1 className="page-heading-row"><span className="page-heading-symbol" aria-hidden="true">🎯</span>Recommendations</h1>
                 <p className="muted-text">Generate personalized career recommendations and understand your career fit with clear scoring insights.</p>
             </section>
 
@@ -238,24 +241,32 @@ function RecommendationsPage({ isAuthenticated }) {
                                                 )}
 
                                                 <div className="feedback-row">
-                                                    <button
-                                                        className="button secondary"
-                                                        type="button"
-                                                        onClick={() => {
-                                                            submitRecommendationFeedback(item.role, true);
-                                                        }}
-                                                    >
-                                                        👍 Helpful
-                                                    </button>
-                                                    <button
-                                                        className="button ghost"
-                                                        type="button"
-                                                        onClick={() => {
-                                                            submitRecommendationFeedback(item.role, false);
-                                                        }}
-                                                    >
-                                                        👎 Not Helpful
-                                                    </button>
+                                                    {feedbackSubmitted[item.role] ? (
+                                                        <span className="feedback-sent-badge">
+                                                            {feedbackSubmitted[item.role] === "helpful" ? "👍 Thanks for your feedback!" : "👎 Noted — we'll improve this."}
+                                                        </span>
+                                                    ) : (
+                                                        <>
+                                                            <button
+                                                                className="button secondary"
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    submitRecommendationFeedback(item.role, true);
+                                                                }}
+                                                            >
+                                                                👍 Helpful
+                                                            </button>
+                                                            <button
+                                                                className="button ghost"
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    submitRecommendationFeedback(item.role, false);
+                                                                }}
+                                                            >
+                                                                👎 Not Helpful
+                                                            </button>
+                                                        </>
+                                                    )}
                                                     <Link className="button ghost button-job-link" to={`/jobs?query=${encodeURIComponent(item.role)}`}>
                                                         Open in Jobs Tab
                                                     </Link>
@@ -294,6 +305,32 @@ function RecommendationsPage({ isAuthenticated }) {
                                 <div className="stat-item">
                                     <p>Last Recommendation Run (Date & Time)</p>
                                     <strong>{mostRecentRecommendationRun ? new Date(mostRecentRecommendationRun.generated_at).toLocaleString() : "N/A"}</strong>
+                                    {mostRecentRecommendationRun?.recommendations?.length > 0 && (
+                                        <div style={{ marginTop: "0.8rem" }}>
+                                            <p className="muted-text" style={{ marginBottom: "0.4rem", fontSize: "0.82rem" }}>Last run — top roles:</p>
+                                            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
+                                                {mostRecentRecommendationRun.recommendations.slice(0, 6).map((rec) => (
+                                                    <span
+                                                        key={rec.role}
+                                                        style={{
+                                                            display: "inline-flex",
+                                                            alignItems: "center",
+                                                            gap: "0.25rem",
+                                                            padding: "0.22rem 0.6rem",
+                                                            borderRadius: "999px",
+                                                            background: "linear-gradient(135deg, rgba(15,118,110,0.1), rgba(37,99,235,0.08))",
+                                                            border: "1px solid rgba(15,118,110,0.25)",
+                                                            fontSize: "0.78rem",
+                                                            fontWeight: 500,
+                                                            color: "var(--accent)",
+                                                        }}
+                                                    >
+                                                        {(rec.confidence * 100).toFixed(0)}% {rec.role}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </CollapsibleCard>

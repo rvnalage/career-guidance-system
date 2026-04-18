@@ -132,7 +132,7 @@ Every LLM reply passes through three sequential gates:
 | **Off-Topic Redirect** | Intent mismatch + low cosine similarity to career topics | Return prompt to refocus ("Could you rephrase that in terms of your career goals?") |
 | **Repetition Guard** | Consecutive token/word repetition > threshold | Truncate and append generic closing ("Let me know if you'd like more details.") |
 
-**Enabled by default** via `SAFETY_FILTER_ENABLED=true`; can be toggled per request via `/llm/config` endpoint.
+**Enabled by default** via `SAFETY_FILTER_ENABLED=true`; applied during LLM post-processing and not toggled via runtime `/llm/config` payload.
 
 ### 2.10 Drift Detection (Input Anomaly Monitoring)
 
@@ -311,12 +311,20 @@ Before retrieval, queries are rewritten using deterministic synonym replacement 
 
 ## 5.5 LLM Response Refinement & Fine-Tuning
 
-The system supports optional LLM-based response refinement using TinyLlama 1.1B (local via Ollama):
+The system supports optional LLM-based response refinement with provider-aware runtime routing (Ollama, OpenAI, Groq):
 
 **Gating**: LLM is only invoked when:
 - `LLM_ENABLED=true`
 - `LLM_REQUIRE_RAG_CONTEXT=true` AND RAG retrieval returns context
 - This prevents hallucinations by ensuring LLM always receives grounded knowledge
+
+**Runtime controls** (update without restart via `POST /api/v1/llm/config`):
+- `enabled`, `provider`, `request_timeout_seconds`, `chat_reply_max_sentences`
+- `ollama_num_predict` (local model token budget)
+- `openai_model`, `openai_max_tokens`
+- `groq_model`, `groq_max_tokens`
+
+Status can be inspected through `GET /api/v1/llm/status`, including `active_model`, provider key availability, and `runtime_override_active`.
 
 **Fine-Tuning Infrastructure** (available for optimization):
 - **Dataset generation**: `ml-models/training/prepare_tinyllama_dataset.py` converts 16 knowledge base documents → 73 JSONL training examples
@@ -374,7 +382,7 @@ Endpoints with `/me` suffix always require authentication. Some endpoints withou
 | Extension | Where to add |
 |-----------|-------------|
 | New career intent | `INTENT_KEYWORDS` + new `Agent` class + `AGENT_REGISTRY` entry |
-| New LLM provider | `llm_service.py` — add branch in `generate_llm_reply` for `settings.llm_provider` |
+| New LLM provider | `llm_service.py` — add branch in `generate_llm_reply` and runtime validation/allowed-model lists |
 | Persistent vector DB | Replace `InMemoryVectorStore` with adapter implementing same interface |
 | Redis caching | `redis_url` already in config; add cache layer in service functions |
 | Profile memory TTL | `profile_service.get_user_profile` — add `updated_at + ttl_days < now` purge |

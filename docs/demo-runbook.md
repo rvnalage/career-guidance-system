@@ -121,11 +121,11 @@ curl -X POST http://localhost:8000/api/v1/chat/message/me \
 
 # Get chat history
 curl -H "Authorization: Bearer <JWT_TOKEN>" \
-  http://localhost:8000/api/v1/chat/history/me
+  http://localhost:8000/api/v1/history/me
 
 # Clear chat history
 curl -X DELETE -H "Authorization: Bearer <JWT_TOKEN>" \
-  http://localhost:8000/api/v1/chat/history/me
+  http://localhost:8000/api/v1/history/me
 ```
 
 ### Recommendations & Explainability
@@ -148,6 +148,10 @@ curl -X POST http://localhost:8000/api/v1/recommendations/feedback/me \
   -H "Authorization: Bearer <JWT_TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{"role":"Data Scientist","helpful":true,"rating":5,"feedback_tags":["relevant","practical"]}'
+
+# Get feedback history (newest first)
+curl -H "Authorization: Bearer <JWT_TOKEN>" \
+  http://localhost:8000/api/v1/recommendations/feedback/me
 
 # Get recommendation history
 curl -H "Authorization: Bearer <JWT_TOKEN>" \
@@ -206,13 +210,13 @@ curl -X POST http://localhost:8000/api/v1/rag/ingest/default
 # RAG status
 curl http://localhost:8000/api/v1/rag/status
 
-# LLM runtime status (enabled, model, safety filter)
+# LLM runtime status (provider, active model, runtime overrides)
 curl http://localhost:8000/api/v1/llm/status
 
 # Update LLM config
 curl -X POST http://localhost:8000/api/v1/llm/config \
   -H "Content-Type: application/json" \
-  -d '{"llm_enabled":true,"rag_enabled":true,"cache_enabled":false}'
+  -d '{"enabled":true,"provider":"ollama","chat_reply_max_sentences":8,"ollama_num_predict":128}'
 
 # Reset LLM config to defaults
 curl -X POST http://localhost:8000/api/v1/llm/config/reset
@@ -258,19 +262,19 @@ curl "http://localhost:8000/api/v1/llm/status"
 ```
 
 Expected output includes:
-- `llm_enabled`: `true` if Ollama is running, `false` otherwise
-- `llm_provider`: `"ollama"`
-- `llm_model`: Current model (e.g., `"tinyllama:latest"`)
-- `llm_finetuned_model`: Optional fine-tuned model path if set
+- `enabled`: `true` if LLM refinement is enabled
+- `provider`: `"ollama"`, `"openai"`, or `"groq"`
+- `active_model`: provider-resolved model currently used for generation
+- `is_finetuned_active`: true only when provider is `ollama` and finetuned model is set
 - `rag_context_max_chars`: Retrieval context size cap (default `1400`)
-- `safety_filter_enabled`: `true` — applies 3-layer safety (harmful block → off-topic redirect → repetition guard)
+- `runtime_override_active`: `true` when `/llm/config` overrides are active
 
 ### Update LLM Config (Runtime)
 
 ```bash
 curl -X POST http://localhost:8000/api/v1/llm/config \
   -H "Content-Type: application/json" \
-  -d '{"llm_enabled": true, "rag_enabled": true}'
+  -d '{"enabled": true, "provider": "groq", "groq_model": "llama-3.1-8b-instant", "groq_max_tokens": 512}'
 ```
 
 ### Check Recommendation Explainability Status
@@ -291,11 +295,10 @@ curl "http://localhost:8000/api/v1/modeling/status"
 ```
 
 Expected output includes:
-- `cf_enabled`: Collaborative filtering for recommendations
-- `bandit_enabled`: Multi-armed bandit for feedback-driven reranking
-- `safety_filter_enabled`: Content safety filter for LLM replies
-- `fine_tuning_status`: Infrastructure complete, awaiting training execution
-- Artifact paths for each model
+- `cf_model.enabled`: Collaborative filtering gate for recommendations
+- `bandit.enabled`: Multi-armed bandit gate and epsilon configuration
+- `safety_filter.enabled`: Content safety filter gate for LLM replies
+- `intent_model`, `user_preference_model`, `psychometric_model`: artifact availability and configured paths
 
 ### Run Drift Detection
 
@@ -347,7 +350,7 @@ Outputs `drift_report.json` and exits with code 2 if input drift detected (CI-fr
    - Return to Chat and show profile-aware recommendations (system remembers uploaded context)
 
 7. **Lifecycle Controls**
-   - Clear chat: `DELETE /api/v1/chat/history/me`
+  - Clear chat: `DELETE /api/v1/history/me`
    - Clear recommendations: `DELETE /api/v1/recommendations/history/me`
    - Clear profile memory: `DELETE /api/v1/profile-intake/me`
    - Show fresh state on next interaction
@@ -356,7 +359,7 @@ Outputs `drift_report.json` and exits with code 2 if input drift detected (CI-fr
 
 8. **Model Runtime Management**
    - Show modeling status: `GET /api/v1/modeling/status` (CF enabled, Bandit enabled, Safety filter on)
-   - Toggle LLM: `POST /api/v1/llm/config` with `llm_enabled: false/true` and observe chat quality difference
+  - Toggle LLM: `POST /api/v1/llm/config` with `enabled: false/true` and observe chat quality difference
    - Show safety filter active: Post harmful query and observe system redirect to on-topic response
 
 9. **Recommendation Ranking Under Bandit**

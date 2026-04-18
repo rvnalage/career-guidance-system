@@ -1,12 +1,13 @@
 """Diagnostics routes for inspecting the optional LLM runtime configuration."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from app.services.llm_service import (
 	get_llm_runtime_status,
 	reset_llm_runtime_config,
 	update_llm_runtime_config,
+	validate_llm_runtime_config_updates,
 )
 
 router = APIRouter()
@@ -27,6 +28,9 @@ class LLMRuntimeConfigUpdate(BaseModel):
 	auto_fallback_to_openai: bool | None = None
 	openai_base_url: str | None = None
 	openai_model: str | None = None
+	openai_max_tokens: int | None = None
+	groq_model: str | None = None
+	groq_max_tokens: int | None = None
 
 
 @router.get("/status")
@@ -39,7 +43,11 @@ async def llm_status() -> dict[str, object]:
 async def llm_update_config(payload: LLMRuntimeConfigUpdate) -> dict[str, object]:
 	"""Apply runtime overrides so provider/model can be toggled live without restart."""
 	updates = payload.model_dump(exclude_none=True)
-	return update_llm_runtime_config(updates)
+	try:
+		validated_updates = validate_llm_runtime_config_updates(updates)
+	except ValueError as exc:
+		raise HTTPException(status_code=422, detail=str(exc)) from exc
+	return update_llm_runtime_config(validated_updates)
 
 
 @router.post("/config/reset")

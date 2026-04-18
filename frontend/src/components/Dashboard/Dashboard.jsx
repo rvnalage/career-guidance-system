@@ -54,7 +54,7 @@ function DashboardHero({
         <CollapsibleCard
             sectionKey="hero"
             eyebrow="Career Command Center"
-            title="Your career snapshot"
+            title="📊 Your career snapshot"
             collapsedSections={collapsedSections}
             toggleSection={toggleSection}
             contentId="dashboard-hero-content"

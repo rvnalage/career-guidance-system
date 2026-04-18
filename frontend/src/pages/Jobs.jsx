@@ -12,6 +12,7 @@ function JobsPage() {
     const [jobQuery, setJobQuery] = useState("data scientist");
     const [error, setError] = useState("");
     const [seedRoles, setSeedRoles] = useState([]);
+    const [loading, setLoading] = useState(false);
     const [collapsedSections, setCollapsedSections] = useState({
         market: false,
     });
@@ -27,25 +28,31 @@ function JobsPage() {
         setError("");
         setSeedRoles([]);
         setGroupedJobs([]);
+        setLoading(true);
         try {
             const response = await apiClient.get(`/market/jobs?search=${encodeURIComponent(query)}&limit=12`);
             setJobs(response.data.results || []);
         } catch (err) {
             setError(err.response?.data?.detail || "Could not load job market data");
+        } finally {
+            setLoading(false);
         }
     };
 
     const loadJobsForRecommendedRoles = async (roles) => {
         setError("");
         setSeedRoles(roles);
+        setLoading(true);
         try {
+            // Cap at 4 roles max to avoid excessive parallel external calls
+            const capped = roles.slice(0, 4);
             const responses = await Promise.all(
-                roles.map((role) =>
-                    apiClient.get(`/market/jobs?search=${encodeURIComponent(role)}&limit=8`),
+                capped.map((role) =>
+                    apiClient.get(`/market/jobs?search=${encodeURIComponent(role)}&limit=5`),
                 ),
             );
 
-            const grouped = roles.map((role, index) => ({
+            const grouped = capped.map((role, index) => ({
                 role,
                 jobs: responses[index].data.results || [],
             }));
@@ -64,9 +71,11 @@ function JobsPage() {
             }
 
             setJobs(deduped);
-            setJobQuery(roles.join(", "));
+            setJobQuery(capped.join(", "));
         } catch (err) {
             setError(err.response?.data?.detail || "Could not load job market data for recommended roles");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -86,14 +95,29 @@ function JobsPage() {
             }
 
             try {
-                const response = await apiClient.get("/recommendations/history/me");
-                const history = response.data?.history || [];
+                // Fetch history and feedback in parallel to filter out rejected roles
+                const [historyRes, feedbackRes] = await Promise.all([
+                    apiClient.get("/recommendations/history/me"),
+                    apiClient.get("/recommendations/feedback/me").catch(() => ({ data: { feedback: [] } })),
+                ]);
+
+                const history = historyRes.data?.history || [];
                 const latestRecommendations = history[0]?.recommendations || [];
+                const feedbackItems = feedbackRes.data?.feedback || [];
+
+                // Build a set of roles the user explicitly rejected
+                const rejectedRoles = new Set(
+                    feedbackItems
+                        .filter((f) => f.helpful === false)
+                        .map((f) => (f.role || "").toLowerCase()),
+                );
+
                 const latestRoles = latestRecommendations
                     .map((item) => item.role)
-                    .filter((role) => typeof role === "string" && role.trim());
+                    .filter((role) => typeof role === "string" && role.trim())
+                    .filter((role) => !rejectedRoles.has(role.toLowerCase()));
 
-                if (latestRoles.length > 0) {
+                if (!cancelled && latestRoles.length > 0) {
                     await loadJobsForRecommendedRoles(latestRoles);
                     return;
                 }
@@ -101,7 +125,9 @@ function JobsPage() {
                 // Fallback to default search input if recommendation history is unavailable.
             }
 
-            await loadMarketJobs(jobQuery);
+            if (!cancelled) {
+                await loadMarketJobs(jobQuery);
+            }
         };
 
         hydrateInitialQuery();
@@ -114,7 +140,7 @@ function JobsPage() {
     return (
         <section className="dashboard-stack">
             <section className="card">
-                <h1>Live Job Market</h1>
+                <h1 className="page-heading-row"><span className="page-heading-symbol" aria-hidden="true">💼</span>Live Job Market</h1>
                 <p className="muted-text">Independent market demand explorer. Search any role directly without running recommendations first.</p>
                 {seedRoles.length > 0 ? (
                     <p className="muted-text">Preloaded from latest recommendation run: {seedRoles.join(", ")}</p>
@@ -122,6 +148,7 @@ function JobsPage() {
             </section>
 
             {error ? <p className="error-text">{error}</p> : null}
+            {loading ? <p className="muted-text" style={{ paddingLeft: "0.5rem" }}>Loading job listings…</p> : null}
 
             <CollapsibleCard
                 sectionKey="market"

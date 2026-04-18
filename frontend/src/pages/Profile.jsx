@@ -216,7 +216,7 @@ function ProfilePage({ isAuthenticated, currentUser }) {
     return (
         <section className="dashboard-stack">
             <section className="card">
-                <h1>My Profile</h1>
+                <h1 className="page-heading-row"><span className="page-heading-symbol" aria-hidden="true">🧾</span>My Profile</h1>
                 <p className="muted-text">Manage your career profile, skills, interests, and psychometric assessment.</p>
             </section>
 

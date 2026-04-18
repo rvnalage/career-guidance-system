@@ -47,7 +47,7 @@ function HomePage({ isAuthenticated, onRegister, onLogin }) {
         <section className="hero-grid">
             <article className="card panel-intro">
                 <p className="eyebrow">Agentic AI + React + FastAPI + ML + NLP + LLM + RAG + XAI</p>
-                <h2>Personalized Career Navigation</h2>
+                <h2 className="page-heading-row"><span className="page-heading-symbol" aria-hidden="true">🧭</span>Personalized Career Navigation</h2>
                 <p>
                     Explore role fit, skill gaps, and interview preparation with an agentic pipeline tailored for
                     your background.

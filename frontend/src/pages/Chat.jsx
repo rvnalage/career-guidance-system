@@ -206,7 +206,7 @@ function ChatPage({ isAuthenticated, currentUser }) {
                 <div className="chat-header-title">
                     <span className="chat-header-icon" aria-hidden="true">🎯</span>
                     <div>
-                        <h2>AI Career Coach</h2>
+                        <h2>Chat</h2>
                         <p className="chat-header-sub">RAG-grounded guidance with agentic reasoning</p>
                     </div>
                 </div>
