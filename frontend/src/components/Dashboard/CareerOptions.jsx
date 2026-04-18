@@ -50,7 +50,7 @@ function RagSearchPanel({ ragQuery, setRagQuery, searchRag, ragBusy, ragResults 
     );
 }
 
-function MarketDemandPanel({ jobQuery, setJobQuery, loadMarketJobs, jobs }) {
+function MarketDemandPanel({ jobQuery, setJobQuery, loadMarketJobs, jobs, groupedJobs = [] }) {
     return (
         <>
             <form
@@ -66,15 +66,38 @@ function MarketDemandPanel({ jobQuery, setJobQuery, loadMarketJobs, jobs }) {
                 </button>
             </form>
             <div className="history-list compact-history-list">
-                {jobs.map((job) => (
-                    <article key={`${job.company}-${job.job_title}`} className="history-item">
-                        <h4>{job.job_title}</h4>
-                        <p>
-                            {job.company} - {job.location}
-                        </p>
-                        <small>{job.category}</small>
-                    </article>
-                ))}
+                {groupedJobs.length > 0 ? (
+                    groupedJobs.map((group) => (
+                        <section key={group.role} className="history-item">
+                            <h4>Recommended Role: {group.role}</h4>
+                            {group.jobs.length === 0 ? (
+                                <p className="muted-text">No jobs found for this role right now.</p>
+                            ) : (
+                                <div className="history-list">
+                                    {group.jobs.map((job) => (
+                                        <article key={`${group.role}-${job.company}-${job.job_title}`} className="history-item">
+                                            <h4>{job.job_title}</h4>
+                                            <p>
+                                                {job.company} - {job.location}
+                                            </p>
+                                            <small>{job.category}</small>
+                                        </article>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+                    ))
+                ) : (
+                    jobs.map((job) => (
+                        <article key={`${job.company}-${job.job_title}`} className="history-item">
+                            <h4>{job.job_title}</h4>
+                            <p>
+                                {job.company} - {job.location}
+                            </p>
+                            <small>{job.category}</small>
+                        </article>
+                    ))
+                )}
             </div>
         </>
     );

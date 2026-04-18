@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { RagSearchPanel, RuntimeSignalsPanel } from "../components/Dashboard/CareerOptions";
 import { apiClient } from "../services/api";
 
 const defaultConfig = {
@@ -22,6 +23,11 @@ function SettingsPage() {
     const [status, setStatus] = useState("");
     const [config, setConfig] = useState(defaultConfig);
     const [runtimeStatus, setRuntimeStatus] = useState(null);
+    const [ragStatus, setRagStatus] = useState(null);
+    const [xaiStatus, setXaiStatus] = useState(null);
+    const [ragQuery, setRagQuery] = useState("career roadmap");
+    const [ragResults, setRagResults] = useState([]);
+    const [ragBusy, setRagBusy] = useState(false);
 
     const hydrateFromStatus = (data) => {
         setRuntimeStatus(data);
@@ -53,9 +59,29 @@ function SettingsPage() {
         }
     };
 
+    const loadRagStatus = async () => {
+        try {
+            const response = await apiClient.get("/rag/status");
+            setRagStatus(response.data);
+        } catch (err) {
+            setStatus(err.response?.data?.detail || "Failed to load RAG status.");
+        }
+    };
+
     useEffect(() => {
         loadStatus();
+        loadRagStatus();
+        loadXaiStatus();
     }, []);
+
+    const loadXaiStatus = async () => {
+        try {
+            const response = await apiClient.get("/recommendations/xai/status");
+            setXaiStatus(response.data);
+        } catch {
+            setXaiStatus(null);
+        }
+    };
 
     const updateField = (field, value) => {
         setConfig((prev) => ({ ...prev, [field]: value }));
@@ -101,15 +127,50 @@ function SettingsPage() {
         }
     };
 
+    const ingestDefaultRag = async () => {
+        setRagBusy(true);
+        try {
+            await apiClient.post("/rag/ingest/default");
+            await loadRagStatus();
+            setStatus("RAG knowledge ingestion completed.");
+        } catch (err) {
+            setStatus(err.response?.data?.detail || "Failed to ingest default RAG documents.");
+        } finally {
+            setRagBusy(false);
+        }
+    };
+
+    const searchRag = async (event) => {
+        event.preventDefault();
+        if (!ragQuery.trim()) {
+            return;
+        }
+        setRagBusy(true);
+        try {
+            const response = await apiClient.get(`/rag/search?query=${encodeURIComponent(ragQuery)}`);
+            setRagResults(response.data.results || []);
+        } catch (err) {
+            setStatus(err.response?.data?.detail || "Failed to search RAG knowledge.");
+        } finally {
+            setRagBusy(false);
+        }
+    };
+
     return (
         <section className="card settings-layout">
             <div className="settings-header">
-                <h2>LLM Runtime Settings</h2>
-                <p className="muted-text">Toggle between local TinyLlama and cloud provider without restarting backend.</p>
+                <h2>Settings</h2>
+                <p className="muted-text">Manage runtime model controls and retrieval (RAG) knowledge operations.</p>
             </div>
 
             {loading ? <p className="muted-text">Loading runtime configuration...</p> : null}
             {status ? <p className="status-inline">{status}</p> : null}
+
+            <div className="settings-meta card">
+                <h3>Runtime Signals</h3>
+                <p className="muted-text">Operational snapshot of current LLM, XAI and RAG state.</p>
+                <RuntimeSignalsPanel llmStatus={runtimeStatus} xaiStatus={xaiStatus} ragStatus={ragStatus} />
+            </div>
 
             <form className="settings-form" onSubmit={onSave}>
                 <label className="settings-check">
@@ -139,13 +200,25 @@ function SettingsPage() {
                 </label>
 
                 <label>
-                    Active Model
+                    Base Model
                     <input
                         value={config.model}
                         onChange={(event) => updateField("model", event.target.value)}
                         placeholder="tinyllama:latest or gpt-4o-mini"
                     />
                 </label>
+
+                {runtimeStatus ? (
+                    <div className="settings-effective-model">
+                        <span className="settings-effective-label">Effective Active Model</span>
+                        <strong className="settings-effective-value">
+                            {runtimeStatus.active_model || runtimeStatus.base_model || "--"}
+                        </strong>
+                        {runtimeStatus.is_finetuned_active ? (
+                            <span className="settings-finetuned-badge">finetuned</span>
+                        ) : null}
+                    </div>
+                ) : null}
 
                 <label>
                     Request Timeout (seconds)
@@ -230,6 +303,23 @@ function SettingsPage() {
             </form>
 
             <div className="settings-meta card">
+                <div className="collapsible-card-header">
+                    <h3>RAG Admin Tools</h3>
+                    <button className="button secondary" type="button" onClick={ingestDefaultRag} disabled={ragBusy}>
+                        {ragBusy ? "Processing..." : "Ingest Default Docs"}
+                    </button>
+                </div>
+                <p className="muted-text">Chunk status: {ragStatus?.total_chunks ?? "--"} | Sources: {ragStatus?.total_sources ?? "--"}</p>
+                <RagSearchPanel
+                    ragQuery={ragQuery}
+                    setRagQuery={setRagQuery}
+                    searchRag={searchRag}
+                    ragBusy={ragBusy}
+                    ragResults={ragResults}
+                />
+            </div>
+
+            <div className="settings-meta card">
                 <h3>Runtime Diagnostics</h3>
                 <p className="muted-text">Configured cloud API key status is read from backend environment, not editable here.</p>
                 <div className="metric-grid">
@@ -242,7 +332,7 @@ function SettingsPage() {
                     <div className="metric-item"><span>OPENAI_API_KEY</span>{runtimeStatus?.openai_api_key_configured ? "configured" : "missing"}</div>
                 </div>
             </div>
-        </section>
+        </section >
     );
 }
 

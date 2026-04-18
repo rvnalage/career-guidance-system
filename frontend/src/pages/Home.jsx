@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 const initialRegister = {
-    full_name: "",
     email: "",
     password: "",
     interests: ["AI"],
@@ -21,7 +20,11 @@ function HomePage({ isAuthenticated, onRegister, onLogin }) {
         event.preventDefault();
         setError("");
         try {
-            await onRegister(registerForm);
+            const usernameFromEmail = registerForm.email.split("@")[0]?.trim() || "User";
+            await onRegister({
+                ...registerForm,
+                full_name: usernameFromEmail,
+            });
             setRegisterForm(initialRegister);
         } catch (err) {
             setError(err.response?.data?.detail || "Registration failed");
@@ -43,70 +46,78 @@ function HomePage({ isAuthenticated, onRegister, onLogin }) {
     return (
         <section className="hero-grid">
             <article className="card panel-intro">
-                <p className="eyebrow">Agentic AI + NLP + ML</p>
-                <h2>Personalized Career Navigation for Students</h2>
+                <p className="eyebrow">Agentic AI + React + FastAPI + ML + NLP + LLM + RAG + XAI</p>
+                <h2>Personalized Career Navigation</h2>
                 <p>
                     Explore role fit, skill gaps, and interview preparation with an agentic pipeline tailored for
                     your background.
                 </p>
-                <div className="cta-row">
-                    <Link className="button" to="/chat">
-                        Start Chat Guidance
-                    </Link>
-                    {isAuthenticated ? (
-                        <Link className="button secondary" to="/dashboard">
-                            Open Dashboard
-                        </Link>
-                    ) : null}
+                <p className="muted-text home-links-title">Quick access</p>
+                <div className="home-links-grid">
+                    <Link className="button quick-access-link qa-chat" to="/chat">Chat Guidance</Link>
+                    <Link className="button quick-access-link qa-reco" to="/recommendations">Recommendations</Link>
+                    <Link className="button quick-access-link qa-jobs" to="/jobs">Jobs</Link>
+                    <Link className="button quick-access-link qa-profile" to="/profile">Profile</Link>
+                    <Link className="button quick-access-link qa-settings" to="/settings">Settings</Link>
+                    <Link className="button quick-access-link qa-dashboard" to="/dashboard">Dashboard</Link>
                 </div>
-                {isAuthenticated ? <p className="status-inline">You are logged in and can access secure endpoints.</p> : null}
             </article>
 
             <article className="card form-card">
                 <h3>Create Account</h3>
-                <form onSubmit={submitRegister}>
-                    <input
-                        placeholder="Full Name"
-                        value={registerForm.full_name}
-                        onChange={(event) => setRegisterForm((prev) => ({ ...prev, full_name: event.target.value }))}
-                        required
-                    />
-                    <input
-                        type="email"
-                        placeholder="Email"
-                        value={registerForm.email}
-                        onChange={(event) => setRegisterForm((prev) => ({ ...prev, email: event.target.value }))}
-                        required
-                    />
-                    <input
-                        type="password"
-                        placeholder="Password"
-                        value={registerForm.password}
-                        onChange={(event) => setRegisterForm((prev) => ({ ...prev, password: event.target.value }))}
-                        required
-                    />
-                    <button type="submit" className="button">
+                <form className="auth-form auth-register-form" onSubmit={submitRegister}>
+                    <div className="auth-row">
+                        <label className="field-label" htmlFor="register-username">Username</label>
+                        <input
+                            id="register-username"
+                            type="email"
+                            placeholder="Enter username email"
+                            value={registerForm.email}
+                            onChange={(event) => setRegisterForm((prev) => ({ ...prev, email: event.target.value }))}
+                            required
+                        />
+                    </div>
+                    <div className="auth-row">
+                        <label className="field-label" htmlFor="register-password">Password</label>
+                        <input
+                            id="register-password"
+                            type="password"
+                            placeholder="Enter password"
+                            value={registerForm.password}
+                            onChange={(event) => setRegisterForm((prev) => ({ ...prev, password: event.target.value }))}
+                            required
+                        />
+                    </div>
+                    <button type="submit" className="button auth-submit-btn">
                         Register
                     </button>
                 </form>
 
                 <h3>Login</h3>
-                <form onSubmit={submitLogin}>
-                    <input
-                        type="email"
-                        placeholder="Email"
-                        value={loginForm.email}
-                        onChange={(event) => setLoginForm((prev) => ({ ...prev, email: event.target.value }))}
-                        required
-                    />
-                    <input
-                        type="password"
-                        placeholder="Password"
-                        value={loginForm.password}
-                        onChange={(event) => setLoginForm((prev) => ({ ...prev, password: event.target.value }))}
-                        required
-                    />
-                    <button type="submit" className="button secondary">
+                <form className="auth-form auth-login-form" onSubmit={submitLogin}>
+                    <div className="auth-row">
+                        <label className="field-label" htmlFor="login-username">Username</label>
+                        <input
+                            id="login-username"
+                            type="email"
+                            placeholder="Enter username email"
+                            value={loginForm.email}
+                            onChange={(event) => setLoginForm((prev) => ({ ...prev, email: event.target.value }))}
+                            required
+                        />
+                    </div>
+                    <div className="auth-row">
+                        <label className="field-label" htmlFor="login-password">Password</label>
+                        <input
+                            id="login-password"
+                            type="password"
+                            placeholder="Enter password"
+                            value={loginForm.password}
+                            onChange={(event) => setLoginForm((prev) => ({ ...prev, password: event.target.value }))}
+                            required
+                        />
+                    </div>
+                    <button type="submit" className="button secondary auth-submit-btn">
                         Login
                     </button>
                 </form>

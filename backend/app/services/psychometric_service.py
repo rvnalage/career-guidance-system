@@ -129,7 +129,8 @@ async def save_user_psychometric_profile(user_id: str, payload: PsychometricRequ
 		collection = get_psychometric_collection()
 		await collection.update_one({"user_id": user_id}, {"$set": document}, upsert=True)
 	except Exception:
-		_psychometric_fallback[user_id] = document
+		pass
+	_psychometric_fallback[user_id] = document
 	return document
 
 
@@ -145,3 +146,20 @@ async def get_user_psychometric_profile(user_id: str) -> dict | None:
 		pass
 
 	return _psychometric_fallback.get(user_id)
+
+
+async def delete_user_psychometric_profile(user_id: str) -> bool:
+	"""Delete a stored psychometric profile from MongoDB and fallback cache."""
+	deleted = False
+	try:
+		collection = get_psychometric_collection()
+		result = await collection.delete_one({"user_id": user_id})
+		deleted = bool(result.deleted_count)
+	except Exception:
+		pass
+
+	if user_id in _psychometric_fallback:
+		_psychometric_fallback.pop(user_id, None)
+		deleted = True
+
+	return deleted

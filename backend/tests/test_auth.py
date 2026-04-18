@@ -268,5 +268,16 @@ def test_psychometric_profile_me_with_auth(client):
 		profile_body = profile_response.json()
 		assert profile_body["top_traits"] == score_body["top_traits"]
 		assert profile_body["recommended_domains"] == score_body["recommended_domains"]
+
+		delete_response = client.delete("/api/v1/psychometric/profile/me")
+		assert delete_response.status_code == 200
+		assert delete_response.json()["deleted"] is True
+
+		empty_profile_response = client.get("/api/v1/psychometric/profile/me")
+		assert empty_profile_response.status_code == 200
+		empty_profile_body = empty_profile_response.json()
+		assert empty_profile_body["normalized_scores"] == {}
+		assert empty_profile_body["top_traits"] == []
+		assert empty_profile_body["recommended_domains"] == []
 	finally:
 		client.app.dependency_overrides.clear()

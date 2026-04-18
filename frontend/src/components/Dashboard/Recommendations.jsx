@@ -2,6 +2,7 @@ function RecommendationWorkspace({
     form,
     setForm,
     generateRecommendations,
+    busy,
     effectiveRecommendations,
     submitRecommendationFeedback,
     error,
@@ -10,38 +11,52 @@ function RecommendationWorkspace({
     return (
         <>
             <p className="muted-text section-copy">
-                Update your active skills, interests, and education context, then run the recommendation engine and explanation panel together.
+                Update your active skills, interests, and education context. For comprehensive profile management, resume uploads, and complete psychometric assessment, visit the <strong>Profile</strong> tab.
             </p>
-            <form onSubmit={generateRecommendations}>
-                <input
-                    value={form.interests}
-                    onChange={(event) => setForm((prev) => ({ ...prev, interests: event.target.value }))}
-                    placeholder="Interests (comma separated)"
-                />
-                <input
-                    value={form.skills}
-                    onChange={(event) => setForm((prev) => ({ ...prev, skills: event.target.value }))}
-                    placeholder="Skills (comma separated)"
-                />
-                <select
-                    value={form.education_level}
-                    onChange={(event) => setForm((prev) => ({ ...prev, education_level: event.target.value }))}
-                >
-                    <option value="high_school">High School</option>
-                    <option value="diploma">Diploma</option>
-                    <option value="bachelor">Bachelor</option>
-                    <option value="master">Master</option>
-                    <option value="phd">PhD</option>
-                </select>
-                <button className="button" type="submit">
-                    Run Recommendation Engine
-                </button>
-                <button className="button ghost" type="button" onClick={() => setPendingRecommendationClearTarget("local")}>
-                    Clear Recommendation View
-                </button>
-                <button className="button ghost" type="button" onClick={() => setPendingRecommendationClearTarget("backend")}>
-                    Clear Saved Recommendation History
-                </button>
+            <form onSubmit={generateRecommendations} className="reco-engine-form">
+                <label className="reco-field">
+                    <span className="reco-field-label">🎯 Interests</span>
+                    <input
+                        value={form.interests}
+                        onChange={(event) => setForm((prev) => ({ ...prev, interests: event.target.value }))}
+                        placeholder="e.g. AI, Data Science, Research"
+                    />
+                    <span className="reco-field-hint">Comma-separated career interests</span>
+                </label>
+                <label className="reco-field">
+                    <span className="reco-field-label">💼 Skills</span>
+                    <input
+                        value={form.skills}
+                        onChange={(event) => setForm((prev) => ({ ...prev, skills: event.target.value }))}
+                        placeholder="e.g. Python, Machine Learning, SQL"
+                    />
+                    <span className="reco-field-hint">Comma-separated technical and soft skills</span>
+                </label>
+                <label className="reco-field">
+                    <span className="reco-field-label">🎓 Education Level</span>
+                    <select
+                        value={form.education_level}
+                        onChange={(event) => setForm((prev) => ({ ...prev, education_level: event.target.value }))}
+                    >
+                        <option value="high_school">High School</option>
+                        <option value="diploma">Diploma</option>
+                        <option value="bachelor">Bachelor</option>
+                        <option value="master">Master</option>
+                        <option value="phd">PhD</option>
+                    </select>
+                </label>
+                <div className="reco-action-row">
+                    <button className="button reco-run-btn" type="submit" disabled={busy}>
+                        {busy ? (
+                            <span className="reco-loading-text">
+                                <span className="reco-spinner" aria-hidden="true" /> Running Engine…
+                            </span>
+                        ) : "🚀 Run Recommendation Engine"}
+                    </button>
+                    <button className="button ghost reco-secondary-btn" type="button" onClick={() => setPendingRecommendationClearTarget("backend")}>
+                        🗑 Clear History
+                    </button>
+                </div>
             </form>
 
             {effectiveRecommendations.length > 0 ? (

@@ -4,6 +4,9 @@ import { BrowserRouter, Navigate, NavLink, Route, Routes } from "react-router-do
 import ChatPage from "./pages/Chat";
 import DashboardPage from "./pages/Dashboard";
 import HomePage from "./pages/Home";
+import JobsPage from "./pages/Jobs";
+import ProfilePage from "./pages/Profile";
+import RecommendationsPage from "./pages/Recommendations";
 import SettingsPage from "./pages/Settings";
 import { apiClient, clearAuthToken, setAuthToken } from "./services/api";
 import { loginUser, registerUser } from "./services/auth";
@@ -20,7 +23,7 @@ const ProtectedRoute = ({ isAuthenticated, children }) => {
 function App() {
     const [token, setToken] = useState(localStorage.getItem(TOKEN_KEY) || "");
     const [currentUser, setCurrentUser] = useState(null);
-    const [statusMessage, setStatusMessage] = useState("");
+    const isLoggedIn = Boolean(token && token.trim());
 
     useEffect(() => {
         if (token) {
@@ -44,7 +47,6 @@ function App() {
             } catch (err) {
                 if (err.response?.status === 401) {
                     setToken("");
-                    setStatusMessage("Session expired. Please login again.");
                 }
             }
         };
@@ -55,18 +57,15 @@ function App() {
     const authActions = useMemo(
         () => ({
             onRegister: async (payload) => {
-                const data = await registerUser(payload);
-                setStatusMessage(data.message || "Registration successful");
+                await registerUser(payload);
             },
             onLogin: async (payload) => {
                 const data = await loginUser(payload);
                 setToken(data.access_token);
-                setStatusMessage("Login successful");
             },
             onLogout: () => {
                 setToken("");
                 setCurrentUser(null);
-                setStatusMessage("Logged out");
             },
         }),
         [],
@@ -76,22 +75,33 @@ function App() {
         <BrowserRouter>
             <div className="app-shell">
                 <header className="topbar">
-                    <div>
-                        <p className="eyebrow">MTech Final Year Project</p>
-                        <h1>Agentic Career Intelligence System</h1>
+                    <div className="topbar-main">
+                        <h1 className="project-title">
+                            <span className="project-title-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" className="project-title-svg" focusable="false">
+                                    <path d="M8 7V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1h2a2 2 0 0 1 2 2v2H4V9a2 2 0 0 1 2-2h2zm2 0h4V6h-4v1z" />
+                                    <path d="M4 13h7v1.2a1 1 0 0 0 1 1h0a1 1 0 0 0 1-1V13h7v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-5z" />
+                                    <path d="M8 18.5l2.2-2.1 1.7 1.5 3.3-3.2" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </span>
+                            <span className="project-title-text">Agentic AI Based Personalized Career Guidance System</span>
+                        </h1>
+                        {isLoggedIn ? (
+                            <button className="button ghost" onClick={authActions.onLogout}>
+                                Logout
+                            </button>
+                        ) : null}
                     </div>
                     <nav className="nav-links">
                         <NavLink to="/">Home</NavLink>
                         <NavLink to="/chat">Chat</NavLink>
-                        <NavLink to="/dashboard">Dashboard</NavLink>
+                        <NavLink to="/recommendations">Recommend</NavLink>
+                        <NavLink to="/jobs">Jobs</NavLink>
+                        <NavLink to="/profile">Profile</NavLink>
                         <NavLink to="/settings">Settings</NavLink>
+                        <NavLink to="/dashboard">Dashboard</NavLink>
                     </nav>
-                    <button className="button ghost" onClick={authActions.onLogout} disabled={!token}>
-                        Logout
-                    </button>
                 </header>
-
-                {statusMessage ? <p className="status-banner">{statusMessage}</p> : null}
 
                 <main className="content-wrap">
                     <Routes>
@@ -99,7 +109,7 @@ function App() {
                             path="/"
                             element={
                                 <HomePage
-                                    isAuthenticated={Boolean(token)}
+                                    isAuthenticated={isLoggedIn}
                                     onRegister={authActions.onRegister}
                                     onLogin={authActions.onLogin}
                                 />
@@ -107,20 +117,44 @@ function App() {
                         />
                         <Route
                             path="/chat"
-                            element={<ChatPage isAuthenticated={Boolean(token)} currentUser={currentUser} />}
+                            element={<ChatPage isAuthenticated={isLoggedIn} currentUser={currentUser} />}
                         />
                         <Route
                             path="/dashboard"
                             element={
-                                <ProtectedRoute isAuthenticated={Boolean(token)}>
+                                <ProtectedRoute isAuthenticated={isLoggedIn}>
                                     <DashboardPage currentUser={currentUser} />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/profile"
+                            element={
+                                <ProtectedRoute isAuthenticated={isLoggedIn}>
+                                    <ProfilePage isAuthenticated={isLoggedIn} currentUser={currentUser} />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/recommendations"
+                            element={
+                                <ProtectedRoute isAuthenticated={isLoggedIn}>
+                                    <RecommendationsPage isAuthenticated={isLoggedIn} currentUser={currentUser} />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/jobs"
+                            element={
+                                <ProtectedRoute isAuthenticated={isLoggedIn}>
+                                    <JobsPage />
                                 </ProtectedRoute>
                             }
                         />
                         <Route
                             path="/settings"
                             element={
-                                <ProtectedRoute isAuthenticated={Boolean(token)}>
+                                <ProtectedRoute isAuthenticated={isLoggedIn}>
                                     <SettingsPage />
                                 </ProtectedRoute>
                             }

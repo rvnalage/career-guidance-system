@@ -70,6 +70,44 @@ async def upload_profile_files(
 	)
 
 
+@router.get("/me", response_model=ExtractedProfile)
+async def get_my_profile(current_user: User = Depends(get_current_user)) -> ExtractedProfile:
+	"""Return the current user's persisted profile context (skills, interests, education, target role)."""
+	from app.services.profile_service import get_user_profile
+
+	profile = await get_user_profile(current_user.id)
+	return ExtractedProfile(
+		skills=profile.get("skills", []),
+		interests=profile.get("interests", []),
+		target_role=profile.get("target_role"),
+		education_level=profile.get("education_level"),
+	)
+
+
+@router.put("/me", response_model=ExtractedProfile)
+async def update_my_profile(
+	payload: ExtractedProfile,
+	current_user: User = Depends(get_current_user),
+) -> ExtractedProfile:
+	"""Manually update the current user's profile skills, interests, education and target role."""
+	from app.services.profile_service import apply_profile_patch
+
+	patch: dict = {
+		"skills": payload.skills,
+		"interests": payload.interests,
+		"education_level": payload.education_level,
+	}
+	if payload.target_role:
+		patch["target_role"] = payload.target_role
+	updated = await apply_profile_patch(current_user.id, patch)
+	return ExtractedProfile(
+		skills=updated.get("skills", []),
+		interests=updated.get("interests", []),
+		target_role=updated.get("target_role"),
+		education_level=updated.get("education_level"),
+	)
+
+
 @router.delete("/me", response_model=ProfileResetResponse)
 async def clear_my_profile_memory(current_user: User = Depends(get_current_user)) -> ProfileResetResponse:
 	"""Delete the current user's persisted chat-profile memory used for prompt personalization."""

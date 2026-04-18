@@ -53,8 +53,8 @@ function DashboardHero({
     return (
         <CollapsibleCard
             sectionKey="hero"
-            eyebrow="Context Aware Dashboard"
-            title="Decision workspace built around your current profile context"
+            eyebrow="Career Command Center"
+            title="Your career snapshot"
             collapsedSections={collapsedSections}
             toggleSection={toggleSection}
             contentId="dashboard-hero-content"
@@ -63,7 +63,7 @@ function DashboardHero({
             <div className="dashboard-collapsible-grid">
                 <div>
                     <p className="muted-text dashboard-hero-copy">
-                        Keep the recommendation workflow, chat evidence, psychometric signals, and retrieval context in one place.
+                        Track progress quickly, then jump to the next action.
                     </p>
                     <div className="dashboard-pill-row">
                         <span className="dashboard-pill">{profileSignals}</span>
@@ -77,11 +77,11 @@ function DashboardHero({
                         <strong>{summary ? `${summary.profile_completion}%` : "--"}</strong>
                     </div>
                     <div className="metric-item">
-                        <span>Current Focus</span>
+                        <span>Top Career Signals</span>
                         <strong>{topRolesText}</strong>
                     </div>
                     <div className="metric-item">
-                        <span>Next Action</span>
+                        <span>Priority Next Step</span>
                         <strong>{nextAction}</strong>
                     </div>
                 </div>

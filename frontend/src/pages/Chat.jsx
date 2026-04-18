@@ -82,51 +82,23 @@ function SourceBadge({ source }) {
     return <span className={`source-badge ${info.cls}`}>{info.label}</span>;
 }
 
-const DEFAULT_PSYCHOMETRIC = {
-    investigative: 3,
-    realistic: 3,
-    artistic: 3,
-    social: 3,
-    enterprising: 3,
-    conventional: 3,
-};
-
 function ChatPage({ isAuthenticated, currentUser }) {
     const [message, setMessage] = useState("");
     const [chat, setChat] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-    const [ownerType, setOwnerType] = useState("self");
-    const [skillsInput, setSkillsInput] = useState("");
-    const [interestsInput, setInterestsInput] = useState("");
-    const [educationLevel, setEducationLevel] = useState("master");
-    const [psychometric, setPsychometric] = useState(DEFAULT_PSYCHOMETRIC);
-    const [uploadFiles, setUploadFiles] = useState([]);
-    const [uploadMessage, setUploadMessage] = useState("");
-    const [uploadLoading, setUploadLoading] = useState(false);
     const [pendingClearTarget, setPendingClearTarget] = useState(null);
-    const [isProfileSectionCollapsed, setIsProfileSectionCollapsed] = useState(false);
     const chatEndRef = useRef(null);
+    const sendInFlightRef = useRef(false);
 
     // Auto-scroll to newest message.
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [chat, loading]);
 
-    const parseCsv = (value) =>
-        value
-            .split(",")
-            .map((item) => item.trim())
-            .filter(Boolean);
-
     const buildChatPayload = (userText) => ({
         message: userText,
         context: {},
-        context_owner_type: ownerType,
-        skills: parseCsv(skillsInput),
-        interests: parseCsv(interestsInput),
-        education_level: educationLevel || null,
-        psychometric_dimensions: psychometric,
     });
 
     useEffect(() => {
@@ -156,9 +128,10 @@ function ChatPage({ isAuthenticated, currentUser }) {
 
     const sendMessage = async (event) => {
         event.preventDefault();
-        if (!message.trim() || loading) {
+        if (!message.trim() || loading || sendInFlightRef.current) {
             return;
         }
+        sendInFlightRef.current = true;
 
         setError("");
 
@@ -206,11 +179,8 @@ function ChatPage({ isAuthenticated, currentUser }) {
             ]);
         } finally {
             setLoading(false);
+            sendInFlightRef.current = false;
         }
-    };
-
-    const clearLocalChat = async () => {
-        setChat([]);
     };
 
     const clearSavedHistory = async () => {
@@ -224,9 +194,6 @@ function ChatPage({ isAuthenticated, currentUser }) {
     };
 
     const confirmClear = async () => {
-        if (pendingClearTarget === "local") {
-            await clearLocalChat();
-        }
         if (pendingClearTarget === "backend") {
             await clearSavedHistory();
         }
@@ -239,8 +206,8 @@ function ChatPage({ isAuthenticated, currentUser }) {
                 <div className="chat-header-title">
                     <span className="chat-header-icon" aria-hidden="true">🎯</span>
                     <div>
-                        <h2>Career Intelligence Chat</h2>
-                        <p className="chat-header-sub">Powered by RAG + Agentic reasoning</p>
+                        <h2>AI Career Coach</h2>
+                        <p className="chat-header-sub">RAG-grounded guidance with agentic reasoning</p>
                     </div>
                 </div>
             </div>
@@ -310,148 +277,6 @@ function ChatPage({ isAuthenticated, currentUser }) {
                 <div ref={chatEndRef} />
             </div>
 
-            <article className="chat-context-card">
-                <div className="collapsible-card-header">
-                    <button
-                        type="button"
-                        className="collapsible-trigger"
-                        aria-expanded={!isProfileSectionCollapsed}
-                        aria-controls="chat-profile-context-content"
-                        onClick={() => setIsProfileSectionCollapsed((prev) => !prev)}
-                    >
-                        <div>
-                            <h3>⚙️ Profile Context</h3>
-                        </div>
-                        <span className="collapse-icon" aria-hidden="true">
-                            {isProfileSectionCollapsed ? "Expand" : "Minimize"}
-                        </span>
-                    </button>
-                </div>
-
-                {!isProfileSectionCollapsed ? (
-                    <div id="chat-profile-context-content" className="collapsible-content">
-                        <div className="chat-context-grid">
-                            <label>
-                                Owner
-                                <select value={ownerType} onChange={(event) => setOwnerType(event.target.value)}>
-                                    <option value="self">For myself</option>
-                                    <option value="on_behalf">On behalf of someone</option>
-                                </select>
-                            </label>
-                            <label>
-                                Education
-                                <select value={educationLevel} onChange={(event) => setEducationLevel(event.target.value)}>
-                                    <option value="high_school">High School</option>
-                                    <option value="diploma">Diploma</option>
-                                    <option value="bachelor">Bachelor</option>
-                                    <option value="master">Master</option>
-                                    <option value="phd">PhD</option>
-                                </select>
-                            </label>
-                        </div>
-                        <label>
-                            Skills (comma separated)
-                            <input
-                                value={skillsInput}
-                                placeholder="python, sql, statistics"
-                                onChange={(event) => setSkillsInput(event.target.value)}
-                            />
-                        </label>
-                        <label>
-                            Interests (comma separated)
-                            <input
-                                value={interestsInput}
-                                placeholder="data science, ai, research"
-                                onChange={(event) => setInterestsInput(event.target.value)}
-                            />
-                        </label>
-
-                        <div className="chat-context-psychometric">
-                            <p className="muted-text">Psychometric quick inputs (1-5)</p>
-                            {Object.entries(psychometric).map(([dimension, value]) => (
-                                <label key={dimension} className="chat-dimension-row">
-                                    <span>{dimension}</span>
-                                    <input
-                                        type="range"
-                                        min="1"
-                                        max="5"
-                                        value={value}
-                                        onChange={(event) =>
-                                            setPsychometric((prev) => ({
-                                                ...prev,
-                                                [dimension]: Number(event.target.value),
-                                            }))
-                                        }
-                                    />
-                                    <strong>{value}</strong>
-                                </label>
-                            ))}
-                        </div>
-                    </div>
-                ) : null}
-            </article>
-
-            {isAuthenticated ? (
-                <article className="chat-context-card">
-                    <h3>Upload Profile Files</h3>
-                    <p className="muted-text">Upload text files for {ownerType === "self" ? "your profile" : "on-behalf context"} parsing.</p>
-                    <div className="chat-upload-row">
-                        <input
-                            type="file"
-                            multiple
-                            accept=".txt,.md,.csv,.json,.log"
-                            onChange={(event) => setUploadFiles(Array.from(event.target.files || []))}
-                        />
-                        <button
-                            className="button secondary"
-                            type="button"
-                            disabled={uploadLoading || uploadFiles.length === 0}
-                            onClick={async () => {
-                                setUploadMessage("");
-                                if (uploadFiles.length === 0) {
-                                    return;
-                                }
-                                setUploadLoading(true);
-                                try {
-                                    const formData = new FormData();
-                                    formData.append("owner_type", ownerType);
-                                    uploadFiles.forEach((file) => formData.append("files", file));
-                                    const response = await apiClient.post("/profile-intake/upload", formData, {
-                                        headers: {
-                                            "Content-Type": "multipart/form-data",
-                                        },
-                                    });
-                                    const parsed = response.data?.extracted_profile || {};
-                                    if ((parsed.skills || []).length > 0) {
-                                        setSkillsInput(parsed.skills.join(", "));
-                                    }
-                                    if ((parsed.interests || []).length > 0) {
-                                        setInterestsInput(parsed.interests.join(", "));
-                                    }
-                                    if (parsed.education_level) {
-                                        setEducationLevel(parsed.education_level);
-                                    }
-                                    if (parsed.psychometric_dimensions) {
-                                        setPsychometric((prev) => ({
-                                            ...prev,
-                                            ...parsed.psychometric_dimensions,
-                                        }));
-                                    }
-                                    setUploadMessage(response.data?.message || "Upload parsed.");
-                                } catch (err) {
-                                    setUploadMessage(err.response?.data?.detail || "Upload failed.");
-                                } finally {
-                                    setUploadLoading(false);
-                                }
-                            }}
-                        >
-                            {uploadLoading ? "Parsing..." : "Parse Files"}
-                        </button>
-                    </div>
-                    {uploadMessage ? <p className="muted-text">{uploadMessage}</p> : null}
-                </article>
-            ) : null}
-
             <div className="chat-input-wrapper">
                 <form className="chat-input-row" onSubmit={sendMessage}>
                     <div className="chat-textarea-wrap">
@@ -459,40 +284,64 @@ function ChatPage({ isAuthenticated, currentUser }) {
                             className="chat-textarea"
                             value={message}
                             rows={1}
-                            placeholder="Ask about careers, skills, interviews… (Enter to send, Shift+Enter for newline)"
+                            placeholder="Ask about careers, skills, interviews… (Enter to send, Alt+Enter for newline)"
                             onChange={(event) => setMessage(event.target.value)}
                             onKeyDown={(event) => {
-                                if (event.key === "Enter" && !event.shiftKey) {
+                                if (event.key !== "Enter") {
+                                    return;
+                                }
+
+                                if (event.altKey) {
+                                    event.preventDefault();
+                                    const textarea = event.currentTarget;
+                                    const selectionStart = textarea.selectionStart;
+                                    const selectionEnd = textarea.selectionEnd;
+
+                                    setMessage((prev) => (
+                                        `${prev.slice(0, selectionStart)}\n${prev.slice(selectionEnd)}`
+                                    ));
+
+                                    requestAnimationFrame(() => {
+                                        const nextCursor = selectionStart + 1;
+                                        textarea.selectionStart = nextCursor;
+                                        textarea.selectionEnd = nextCursor;
+                                    });
+                                    return;
+                                }
+
+                                if (!event.altKey) {
                                     event.preventDefault();
                                     if (message.trim() && !loading) sendMessage(event);
                                 }
                             }}
                         />
                     </div>
-                    <button className="button chat-send-btn" type="submit" disabled={loading || !message.trim()}>
-                        {loading ? <span className="send-spinner" /> : "↑ Send"}
-                    </button>
+                    <div className="chat-input-actions">
+                        <button className="button chat-send-btn" type="submit" disabled={loading || !message.trim()}>
+                            {loading ? <span className="send-spinner" /> : "↑ Send"}
+                        </button>
+                        {isAuthenticated ? (
+                            <button
+                                className="button ghost chat-clear-btn"
+                                type="button"
+                                onClick={() => setPendingClearTarget("backend")}
+                            >
+                                Clear Saved History
+                            </button>
+                        ) : null}
+                    </div>
                 </form>
-                <p className="input-hint">Enter to send · Shift+Enter for new line</p>
-            </div>
-
-            <div className="clear-action-row">
-                <button className="button ghost" type="button" onClick={() => setPendingClearTarget("local")}>
-                    🗑 Clear Screen
-                </button>
-                {isAuthenticated ? (
-                    <button className="button ghost" type="button" onClick={() => setPendingClearTarget("backend")}>
-                        🗑 Clear Saved History
-                    </button>
-                ) : null}
+                <p className="input-hint">Enter to send · Alt+Enter for new line</p>
+                <article className="chat-context-card profile-tip-card">
+                    <p className="profile-tip-title">💡 Profile tip</p>
+                    <p className="muted-text">Update skills, interests, and psychometrics in the <strong>Profile</strong> tab.</p>
+                </article>
             </div>
 
             <ConfirmModal
                 open={Boolean(pendingClearTarget)}
                 title="Confirm Clear"
-                message={pendingClearTarget === "backend"
-                    ? "Confirm clear of saved backend chat history?"
-                    : "Confirm clear of chat currently shown on screen?"}
+                message="Confirm clear of saved backend chat history?"
                 confirmLabel="Confirm Clear"
                 onConfirm={confirmClear}
                 onCancel={() => setPendingClearTarget(null)}

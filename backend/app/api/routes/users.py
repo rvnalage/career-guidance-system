@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.database.models import User
 from app.dependencies import get_current_user, get_database_session
 from app.schemas.user import UserProfile
-from app.services.user_service import to_user_profile, update_user_profile
+from app.services.user_service import to_user_profile, update_user_profile, reset_user_data
 
 router = APIRouter()
 
@@ -37,3 +37,11 @@ async def update_current_user(
 			detail="Database unavailable. Please try again later.",
 		) from exc
 	return to_user_profile(updated_user)
+
+
+@router.delete("/data/me")
+async def reset_user_data_endpoint(
+	current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object]:
+	"""Reset all user data including chat history, recommendations, and psychometric profile."""
+	return await reset_user_data(current_user.id)

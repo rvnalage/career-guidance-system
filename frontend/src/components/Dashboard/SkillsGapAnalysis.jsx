@@ -1,6 +1,4 @@
 function ProfileContextPanel({
-    ownerType,
-    setOwnerType,
     uploadBusy,
     uploadFiles,
     setUploadFiles,
@@ -10,34 +8,12 @@ function ProfileContextPanel({
     setPsychometric,
     scorePsychometric,
     psychometricResult,
+    onDeletePsychometric,
 }) {
     return (
         <>
             <div className="chat-context-card" style={{ marginBottom: "0.75rem" }}>
-                <label>
-                    Owner
-                    <select value={ownerType} onChange={(event) => setOwnerType(event.target.value)}>
-                        <option value="self">For myself</option>
-                        <option value="on_behalf">On behalf of someone</option>
-                    </select>
-                </label>
-                <div className="chat-upload-row">
-                    <input
-                        type="file"
-                        multiple
-                        accept=".txt,.md,.csv,.json,.log"
-                        onChange={(event) => setUploadFiles(Array.from(event.target.files || []))}
-                    />
-                    <button
-                        className="button secondary"
-                        type="button"
-                        onClick={uploadProfileFiles}
-                        disabled={uploadBusy || uploadFiles.length === 0}
-                    >
-                        {uploadBusy ? "Parsing..." : "Parse Profile Files"}
-                    </button>
-                </div>
-                {uploadMessage ? <p className="muted-text">{uploadMessage}</p> : null}
+                <p className="muted-text">For complete profile management, resume uploads, and data reset, visit the <strong>Profile</strong> tab. Below you can view and manage your psychometric assessment.</p>
             </div>
             <div className="psychometric-grid">
                 {Object.keys(psychometric).map((trait) => (
@@ -72,6 +48,9 @@ function ProfileContextPanel({
                         <h4>Recommended Domains</h4>
                         <p>{psychometricResult.recommended_domains.join(", ")}</p>
                     </article>
+                    <button className="button secondary" type="button" onClick={onDeletePsychometric}>
+                        Delete Psychometric Result
+                    </button>
                 </div>
             ) : null}
         </>

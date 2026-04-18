@@ -8,6 +8,7 @@ from app.database.models import User
 from app.dependencies import get_current_user
 from app.schemas.psychometric import PsychometricRequest, PsychometricResponse
 from app.services.psychometric_service import (
+	delete_user_psychometric_profile,
 	get_user_psychometric_profile,
 	save_user_psychometric_profile,
 	score_psychometric,
@@ -39,6 +40,15 @@ async def score_psychometric_test_me(
 		top_traits=document.get("top_traits", []),
 		recommended_domains=document.get("recommended_domains", []),
 	)
+
+
+@router.delete("/profile/me")
+async def delete_psychometric_profile_me(
+	current_user: Annotated[User, Depends(get_current_user)],
+) -> dict[str, object]:
+	"""Delete the authenticated user's saved psychometric profile."""
+	deleted = await delete_user_psychometric_profile(current_user.id)
+	return {"deleted": deleted, "message": "Psychometric profile cleared"}
 
 
 @router.get("/profile/me", response_model=PsychometricResponse)

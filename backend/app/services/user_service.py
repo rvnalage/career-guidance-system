@@ -77,3 +77,27 @@ def authenticate_user(db: Session, email: str, password: str) -> User | None:
 	if not verify_password(password, user.hashed_password):
 		return None
 	return user
+
+
+async def reset_user_data(user_id: str) -> dict[str, object]:
+	"""Reset all user data including history, recommendations, and psychometric profile."""
+	from app.services.history_service import clear_user_history
+	from app.services.recommendation_service import clear_recommendation_history
+	from app.services.psychometric_service import delete_user_psychometric_profile
+
+	# Clear chat history
+	chat_deleted = await clear_user_history(user_id)
+
+	# Clear recommendation history
+	recommendations_deleted = await clear_recommendation_history(user_id)
+
+	# Delete psychometric profile
+	psychometric_deleted = await delete_user_psychometric_profile(user_id)
+
+	return {
+		"user_id": user_id,
+		"chat_history_deleted": chat_deleted,
+		"recommendation_history_deleted": recommendations_deleted,
+		"psychometric_profile_deleted": psychometric_deleted,
+		"message": "All user data has been reset successfully",
+	}
