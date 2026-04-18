@@ -87,6 +87,68 @@ Implementation note:
 - `LLM_REQUIRE_RAG_CONTEXT=true` prevents LLM calls when retrieval returns no context.
 - The LLM acts as a post-processor over agent output, and route handlers always fall back safely to deterministic agent responses.
 
+### 2.7 Collaborative Filtering (CF) for Recommendation Blending
+
+User recommendations are computed as a hybrid of content-based scoring and collaborative filtering:
+
+```
+final_score = (1 - cf_alpha) * content_score + cf_alpha * cf_score
+```
+
+**Algorithm:** TruncatedSVD factorization over user-item interaction matrix built from recommendation history + feedback.
+
+**Data sources:**
+- User-item pairs: `(user_id, recommended_role)` from `recommendation_history`
+- Feedback labels: `helpful` (binary) + `rating` (1–5) from `recommendation_feedback`
+- Reward signal: `0.5 * helpful + 0.5 * (rating - 1) / 4`
+
+**Cold-start:** For users with no history, CF scores default to column means (dataset-wide average rating per role).
+
+**Features exposed in XAI output:** CF score appears as the 5th feature contribution (`cf_score`), separate from content-based scores (skills, interests, education, psychometric).
+
+### 2.8 Multi-Armed Bandit (Epsilon-Greedy) for Adaptive Feedback
+
+Feedback-driven reranking using epsilon-greedy bandit policy:
+
+```
+action = argmax(top_k_roles) with probability (1 - epsilon)
+       = random(top_k_roles) with probability epsilon
+```
+
+**Reward signal:** Merged from `helpful` boolean and `rating` (1–5):
+$$\text{reward} = 0.5 \times \text{helpful} + 0.5 \times \frac{\text{rating} - 1}{4}$$
+
+**State persistence:** Bandit policy (`Q-values`) stored in JSON file; updated online after each feedback event via `record_feedback()`.
+
+**Reranking:** After content + CF scoring produces top-K, bandit reranks using learned Q-values. Bounded score shifts prevent extreme reordering; `BANDIT_ENABLED` flag gated (disabled by default for safe demo).
+
+### 2.9 Safety Filter (3-Layer Defense on LLM Output)
+
+Every LLM reply passes through three sequential gates:
+
+| Layer | Check | Action on Fail |
+|-------|-------|----------------|
+| **Harmful Content Block** | Regex + keyword list (bias, violence, illegal advice) | Return system redirect ("I'm here to help with career guidance...") |
+| **Off-Topic Redirect** | Intent mismatch + low cosine similarity to career topics | Return prompt to refocus ("Could you rephrase that in terms of your career goals?") |
+| **Repetition Guard** | Consecutive token/word repetition > threshold | Truncate and append generic closing ("Let me know if you'd like more details.") |
+
+**Enabled by default** via `SAFETY_FILTER_ENABLED=true`; can be toggled per request via `/llm/config` endpoint.
+
+### 2.10 Drift Detection (Input Anomaly Monitoring)
+
+**Purpose:** Detect shifts in query patterns that may indicate model staleness or user population change.
+
+**Method:** Kolmogorov–Smirnov (KS) statistical test on query token frequencies vs baseline distribution.
+
+**Baseline:** Generated at first system ingest or training checkpoint; stored in `drift_baseline.json`.
+
+**Output:** `drift_report.json` with:
+- KS statistic + p-value
+- Top changing tokens
+- Recommendation: "No drift detected" / "Minor drift" / "Major drift — consider retraining"
+
+**CI integration:** Script exits with code 2 if `p < 0.05` (drift detected), enabling automated pipeline gates.
+
 ---
 
 ## 3. Data Model Design

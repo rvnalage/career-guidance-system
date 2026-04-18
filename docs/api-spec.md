@@ -368,7 +368,7 @@ Submit feedback on a given recommendation.
 
 ### `GET /recommendations/xai/status` 🔒
 
-Check which XAI method is active at runtime.
+Check which XAI method is active at runtime and feature set details.
 
 **Response `200`**
 ```json
@@ -377,16 +377,25 @@ Check which XAI method is active at runtime.
   "shap_available": true,
   "lime_available": false,
   "fallback_enabled": true,
-  "user_id": "550e8400-..."
+  "features": [
+    "skills_score",
+    "interests_score", 
+    "education_score",
+    "psychometric_score",
+    "cf_score"
+  ],
+  "notes": "Collaborative filtering (CF) enabled with TruncatedSVD model"
 }
 ```
 
 | Field | Values | Notes |
 |-------|--------|-------|
-| `active_mode` | `"shap"` \| `"lime"` \| `"fallback"` | |
-| `shap_available` | bool | False if import fails |
+| `active_mode` | `"shap"` \| `"lime"` \| `"fallback"` | SHAP is priority 1, LIME is priority 2 |
+| `shap_available` | bool | False if `shap` package not installed |
 | `lime_available` | bool | False on Python 3.13+ |
-| `fallback_enabled` | bool | Always `true` |
+| `fallback_enabled` | bool | Always `true` — deterministic weighted fallback |
+| `features` | string[] | 5-feature set: content scores + psychometric + CF (collaborative filtering) |
+| `notes` | string | Status of additional modeling features |
 
 ---
 
@@ -735,11 +744,11 @@ Fetch live remote job listings from the Remotive API.
 
 ---
 
-## 12. LLM Status — `/api/v1/llm`
+## 12. LLM Runtime — `/api/v1/llm`
 
 ### `GET /llm/status`
 
-Inspect LLM runtime configuration.
+Inspect LLM runtime configuration, safety filter status, and fine-tuned model availability.
 
 **Response `200`**
 ```json
@@ -749,55 +758,116 @@ Inspect LLM runtime configuration.
   "provider": "ollama",
   "base_url": "http://localhost:11434",
   "base_model": "tinyllama:latest",
-  "finetuned_model": "",
-  "active_model": "tinyllama:latest",
-  "is_finetuned_active": false
+  "finetuned_model": "tinyllama:finetuned",
+  "active_model": "tinyllama:finetuned",
+  "is_finetuned_active": true,
+  "safety_filter_enabled": true,
+  "safety_filter_mode": "strict",
+  "rag_context_max_chars": 1400,
+  "cache_enabled": true
 }
 ```
 
+| Field | Notes |
+|-------|-------|
+| `enabled` | LLM post-processing active (Ollama running) |
+| `finetuned_model` | Path to fine-tuned adapter if available; loaded when set and `active_model` points to it |
+| `safety_filter_enabled` | 3-layer safety (harmful block → off-topic redirect → repetition guard) |
+| `rag_context_max_chars` | Max chars from RAG context to include in LLM prompt (prevents token overflow) |
+
+### `POST /llm/config` 🔒
+
+Update LLM runtime configuration at runtime (no restart required).
+
+**Request body**
+```json
+{
+  "llm_enabled": true,
+  "rag_enabled": true,
+  "safety_filter_enabled": true,
+  "cache_enabled": false
+}
+```
+
+**Response `200`** — same as `/llm/status`.
+
+### `POST /llm/config/reset` 🔒
+
+Reset LLM config to environment defaults.
+
+**Response `200`** — same as `/llm/status`.
+
 ---
 
-## 13. Modeling Status — `/api/v1/modeling`
+## 13. MLOps & Modeling — `/api/v1/modeling`
 
 ### `GET /modeling/status`
 
-Inspect which phase-2 ML models are enabled and whether their artifact files are present on disk.  No authentication required.
+Inspect MLOps models, explainability, and feature gates. No authentication required.
 
 **Response `200`**
 ```json
 {
   "intent_model": {
     "enabled": false,
+    "status": "pending_training",
     "artifact_dir": "ml-models/pretrained/intent_model",
-    "model_exists": false,
-    "labels_exists": false,
-    "min_confidence": 0.5
-  },
-  "user_preference_model": {
-    "enabled": false,
-    "artifact_path": "ml-models/pretrained/user_modeling/user_preference_model.pkl",
-    "artifact_exists": false,
-    "blend_alpha": 0.35
-  },
-  "psychometric_model": {
-    "enabled": false,
-    "artifact_path": "ml-models/pretrained/psychometric_model/psychometric_model.pkl",
-    "artifact_exists": false
+    "model_exists": false
   },
   "cf_model": {
-    "enabled": false,
+    "enabled": true,
+    "status": "active",
     "artifact_dir": "ml-models/pretrained/cf_model",
-    "artifact_exists": false,
+    "artifact_exists": true,
+    "algorithm": "TruncatedSVD",
     "blend_alpha": 0.25
   },
   "bandit": {
-    "enabled": false,
-    "artifact_dir": "ml-models/pretrained/bandit",
-    "state_exists": false,
-    "epsilon": 0.1
+    "enabled": true,
+    "status": "active",
+    "policy_path": "ml-models/pretrained/bandit/policy.json",
+    "policy_exists": true,
+    "epsilon": 0.1,
+    "algorithm": "epsilon_greedy"
+  },
+  "safety_filter": {
+    "enabled": true,
+    "status": "active",
+    "layers": ["harmful_content_block", "off_topic_redirect", "repetition_guard"]
+  },
+  "explainability": {
+    "active_mode": "shap",
+    "shap_available": true,
+    "lime_available": false,
+    "fallback_enabled": true,
+    "features": ["skills_score", "interests_score", "education_score", "psychometric_score", "cf_score"]
+  },
+  "fine_tuning": {
+    "infrastructure_ready": true,
+    "dataset_path": "ml-models/datasets/tinyllama_sft_generated.jsonl",
+    "dataset_examples": 73,
+    "training_script": "ml-models/training/train_tinyllama_cpu.py",
+    "status": "infrastructure_complete_awaiting_execution"
   }
 }
 ```
+
+**Key Features:**
+
+| Feature | Status | Details |
+|---------|--------|----------|
+| **Collaborative Filtering** | ✅ Full | TruncatedSVD trained on user-item interactions; blends score with content-based |
+| **Bandit Adaptation** | ✅ Full | Epsilon-greedy policy learns from feedback (helpful + rating); reranks top-K |
+| **Safety Filter** | ✅ Full | 3-layer: blocks harmful → redirects off-topic → prevents repetition |
+| **Explainability (XAI)** |  ✅ Full | SHAP/LIME over 5-feature set; deterministic fallback always available |
+| **Fine-Tuning Infrastructure** | ✅ Ready | QLoRA trainer, dataset (73 examples from knowledge base), evaluation pipeline |
+| **Drift Detection** | ✅ Full | KS test on query patterns; outputs drift_report.json; CI-friendly |
+| **Intent Classifier** | 🔲 Pending | BERT/DistilBERT training framework staged for phase 2 |
+
+**Training Artifact Paths:**
+- CF: `ml-models/pretrained/cf_model/cf_model.pkl`
+- Bandit: `ml-models/pretrained/bandit/policy.json`
+- Fine-tuned TinyLlama: Merge into Ollama custom model or set `LLM_FINETUNED_MODEL` env var
 
 Training commands to produce artifacts for each model:
 

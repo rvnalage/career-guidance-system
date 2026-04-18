@@ -35,11 +35,15 @@ backend/tests/
 ├── test_auth.py             # Auth guard coverage for all protected endpoints
 ├── test_chat.py             # Chat route intent-to-reply pipeline
 ├── test_agents.py           # Agent dispatch, intent routing, confidence scoring
-├── test_ml.py               # Recommendation engine (scoring logic, sort order)
+├── test_ml.py               # Recommendation engine (scoring logic, CF blending, sort order)
 ├── test_rag.py              # RAG status, ingest, search pipeline
-├── test_xai_explanations.py # XAI explainer (SHAP/LIME/fallback)
+├── test_xai_explanations.py # XAI explainer (SHAP/LIME/fallback) over 5-feature set
+├── test_recommendations.py  # Recommendation generation, feedback, bandit reranking
+├── test_llm_integration.py  # LLM config endpoints, safety filter behavior
 ├── test_profile_intake.py   # Upload parsing and profile-intake endpoint behavior
 ├── test_profile_service.py  # Profile merge and summarize (no I/O)
+├── test_modeling_status.py  # MLOps endpoint reports CF/Bandit/Safety/Drift/Fine-tuning status
+├── test_drift_detection.py  # Drift detector (KS test, baseline generation, CI exit codes)
 └── test_nlp.py              # (placeholder — NLP edge cases can be added here)
 ```
 
@@ -190,10 +194,133 @@ Direct unit tests of the `explain_recommendation` function — no HTTP, no datab
 
 | Test | Input | Assertions |
 |------|-------|-----------|
-| `test_explain_recommendation_returns_expected_shape_and_label` | 4-feature map, weight dict | Returns 4 contributions; label is one of the three valid strings |
+| `test_explain_recommendation_returns_expected_shape_and_label` | 5-feature map, weight dict | Returns 5 contributions (skills, interests, education, psychometric, CF); label is one of the three valid strings |
+| `test_explain_recommendation_with_cf_score_present` | User with recommendation history | `cf_score` feature contribution non-zero; other 4 features present |
+| `test_xai_status_reports_active_mode` | (no input, service call) | `active_mode` in ('shap', 'lime', 'fallback'); `features` list includes 'cf_score' |
 
-**Coverage gaps to add**:
-- All four features are present in contributions output regardless of active mode
+**Coverage**:
+- All 5 features present in contributions output regardless of active mode (SHAP/LIME/fallback)
+- CF score correctly attributed to collaborative filtering model
+
+### 5.8 Recommendation Feedback & Bandit Tests (`test_recommendations.py`)
+
+Tests recommendation generation, feedback recording, and bandit-driven reranking.
+
+| Test | Input / Scenario | Key assertions |
+|------|-----------------|----------------|
+| `test_generate_recommendations_with_cf_blending` | User with recommendation history | `cf_score` in contribution features; score = (1-alpha)*content + alpha*cf |
+| `test_record_feedback_updates_bandit_state` | Submit feedback (helpful=true, rating=5) | Policy state file updated; calculated reward = 0.5*1 + 0.5*1 = 1.0 |
+| `test_bandit_reranks_after_multiple_feedback` | Submit 5 feedback events, generate new recs | Top role in new generation differs from previous; bandit Q-values reflect learned preferences |
+| `test_bandit_epsilon_greedy_exploration` | Bandit with epsilon=0.15 | Enough exploration to see occasional re-rankings of sub-optimal roles |
+| `test_feedback_reward_signal_calculation` | helpful=true, rating=3 | reward = 0.5*1 + 0.5*(3-1)/4 = 0.5 + 0.25 = 0.75 |
+
+**Coverage**:
+- Epsilon-greedy exploration-exploitation tradeoff working
+- Feedback signal correctly merged (helpful + rating)
+- Policy persistence across requests
+
+### 5.9 LLM Configuration & Safety Filter Tests (`test_llm_integration.py`)
+
+Tests LLM runtime configuration, fine-tuned model loading, and safety filter behavior.
+
+| Test | Scenario | Assertions |
+|------|----------|-----------|
+| `test_llm_status_endpoint` | `GET /llm/status` | Returns `enabled`, `provider`, `safety_filter_enabled`, `active_model` |
+| `test_llm_config_update_endpoint` | `POST /llm/config` with `llm_enabled=false` | Next status reflects change; no HTTP restart required |
+| `test_llm_config_reset_endpoint` | `POST /llm/config/reset` | Config reverts to env defaults |
+| `test_safety_filter_blocks_harmful_content` | Query with harmful intent, LLM enabled | Reply redirects to system message instead of harmful content |
+| `test_safety_filter_redirects_offtopic` | Query about unrelated topic | Reply contains redirect prompt ("Could you rephrase in terms of career goals...") |
+| `test_safety_filter_prevents_repetition` | Mock LLM output with token loop | Output truncated and generic closing appended |
+| `test_safety_filter_disabled_allows_content` | Query with `SAFETY_FILTER_ENABLED=false` | Harmful/off-topic content passes through (for testing) |
+| `test_finetuned_model_loading` | Set `LLM_FINETUNED_MODEL=/path/to/model` | Status shows `is_finetuned_active=true`; active_model points to fine-tuned model |
+
+**Coverage**:
+- 3-layer safety mechanism working independently
+- Config changes take effect immediately (no restart)
+- Fine-tuned model integration path validated
+
+### 5.10 Modeling Status & MLOps Tests (`test_modeling_status.py`)
+
+Tests the `/modeling/status` endpoint and reported model enablement states.
+
+| Test | Scenario | Assertions |
+|------|----------|-----------|
+| `test_modeling_status_cf_enabled` | CF model artifact exists | `cf_model.enabled=true`, `artifact_exists=true`, `blend_alpha` present |
+| `test_modeling_status_bandit_enabled` | Bandit policy file present | `bandit.enabled=true`, `policy_exists=true`, `epsilon` present |
+| `test_modeling_status_safety_filter` | Safety filter active | `safety_filter.enabled=true`, 3 layers listed |
+| `test_modeling_status_explainability` | SHAP/LIME available | `active_mode` in ('shap', 'lime', 'fallback'); 5-feature list present |
+| `test_modeling_status_fine_tuning_ready` | Fine-tuning scripts and dataset present | `fine_tuning.infrastructure_ready=true`, example count = 73 |
+| `test_modeling_status_intent_classifier_pending` | Intent model not yet trained | `intent_model.enabled=false`, `status='pending_training'` |
+
+**Coverage**:
+- All Phase 2 models correctly reported as enabled/pending
+- Feature counts and artifact paths verified
+- Fallback graceful when artifacts missing
+
+### 5.11 Drift Detection Tests (`test_drift_detection.py`)
+
+Tests input anomaly detection, baseline generation, and CI exit codes.
+
+| Test | Scenario | Assertions |
+|------|----------|-----------|
+| `test_drift_detection_no_drift_stable_queries` | 100 stable queries vs baseline | `p_value > 0.05`, exit code 0 |
+| `test_drift_detection_major_drift_new_vocab` | Queries with 50% new tokens vs baseline | `p_value < 0.05`, exit code 2 (CI gate signal) |
+| `test_drift_report_generation` | Run detector with default config | `drift_report.json` generated with KS-stat, top changing tokens, recommendation |
+| `test_drift_baseline_generation` | First-time run / no baseline | Baseline file created at `drift_baseline.json`; next run uses as reference |
+| `test_drift_heuristic_fallback` | Very small sample size | Falls back to heuristic (vocab coverage check) instead of KS test |
+
+**Coverage**:
+- Statistical test (KS) correctly identifies drift
+- Baseline generation and persistence working
+- CI-friendly exit codes (0 = ok, 2 = drift detected)
+- Heuristic fallback for edge cases
+
+---
+
+## 6. Test Execution & CI/CD Integration
+
+### 6.1 Local Execution
+
+```bash
+# Run all tests
+cd backend
+python -m pytest -v tests/
+
+# Run specific test file
+python -m pytest -v tests/test_chat.py
+
+# Run tests matching pattern
+python -m pytest -v tests/ -k "test_llm or test_bandit"
+
+# Run with coverage
+python -m pytest --cov=app --cov-report=html tests/
+```
+
+### 6.2 CI Pipeline Gates
+
+Expected test metrics for pipeline pass:
+
+| Metric | Threshold | Tools |
+|--------|-----------|-------|
+| Test pass rate | 100% | pytest exit code 0 |
+| Coverage | ≥ 80% on core services | pytest-cov |
+| Drift detection | p-value > 0.05 (no major shifts) | ml-models/evaluation/detect_input_drift.py (exit code < 2) |
+| Linting | All messages as errors | flake8 / black |
+| Type checking | No errors | mypy |
+
+### 6.3 Test Environment Variables
+
+Recommended for test runs (conftest.py setup):
+
+```python
+os.environ['RAG_ENABLED'] = 'false'        # Skip knowledge base init in tests
+os.environ['LLM_ENABLED'] = 'false'        # Mock LLM calls
+os.environ['SAFETY_FILTER_ENABLED'] = 'true'  # Test safety layer
+os.environ['DATABASE_URL'] = 'postgresql://test:test@localhost/test_db'  # Test DB
+os.environ['MONGODB_URL'] = 'mongodb://localhost:27017'  # Test MongoDB (optional)
+```
+
+Tests should work even when actual databases are unavailable (graceful degradation).
 - `get_explainer_runtime_status()` returns correct `active_mode` string
 - Fallback waterfall used when SHAP import is patched to fail
 
