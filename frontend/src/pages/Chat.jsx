@@ -107,6 +107,7 @@ function ChatPage({ isAuthenticated, currentUser }) {
     const [pendingClearTarget, setPendingClearTarget] = useState(null);
     const [isProfileSectionCollapsed, setIsProfileSectionCollapsed] = useState(false);
     const chatEndRef = useRef(null);
+    const sendInFlightRef = useRef(false);
 
     // Auto-scroll to newest message.
     useEffect(() => {
@@ -156,9 +157,10 @@ function ChatPage({ isAuthenticated, currentUser }) {
 
     const sendMessage = async (event) => {
         event.preventDefault();
-        if (!message.trim() || loading) {
+        if (!message.trim() || loading || sendInFlightRef.current) {
             return;
         }
+        sendInFlightRef.current = true;
 
         setError("");
 
@@ -206,6 +208,7 @@ function ChatPage({ isAuthenticated, currentUser }) {
             ]);
         } finally {
             setLoading(false);
+            sendInFlightRef.current = false;
         }
     };
 

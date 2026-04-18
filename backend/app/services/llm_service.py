@@ -142,6 +142,8 @@ def _resolve_runtime_config() -> dict[str, object]:
 		"openai_api_key": settings.openai_api_key.strip(),
 		"openai_base_url": settings.openai_base_url.strip(),
 		"openai_model": settings.openai_model.strip(),
+		"groq_api_key": settings.groq_api_key.strip(),
+		"groq_model": settings.groq_model.strip(),
 		"auto_fallback_to_openai": settings.llm_auto_fallback_to_openai,
 	}
 	base.update(_runtime_overrides)
@@ -216,7 +218,7 @@ def _build_prompt(
 		"- Output only final advice prose, no preface.\n"
 		"- Do not thank the user, greet the user, or mention that you are happy to help.\n"
 		"- Do not say 'I understand', 'Dear user', or similar courtesy phrases.\n"
-		f"- Limit to {chat_reply_max_sentences} short sentences.\n"
+		f"- Write up to {chat_reply_max_sentences} sentences. Use numbered steps, bullet points, or structured paragraphs as appropriate for the question.\n"
 		f"Intent guidance: {intent_guidance}\n"
 		f"QUESTION: {message}\n"
 		f"INTENT: {intent} (confidence {intent_confidence:.2f})\n"
@@ -310,7 +312,7 @@ def _log_prompt_diagnostics(
 def _call_ollama(prompt: str, runtime: dict[str, object]) -> Optional[str]:
 	"""Call a local Ollama chat endpoint and return refined text."""
 	url = f"{str(runtime.get('base_url', '')).rstrip('/')}/api/chat"
-	num_predict = max(24, min(256, int(runtime.get("ollama_num_predict", settings.llm_ollama_num_predict))))
+	num_predict = max(24, min(600, int(runtime.get("ollama_num_predict", settings.llm_ollama_num_predict))))
 	payload = {
 		"model": _active_model_name(runtime),
 		"messages": [
@@ -389,6 +391,52 @@ def _call_openai_compatible(prompt: str, runtime: dict[str, object], *, fallback
 	return str(message.get("content", "")).strip() or None
 
 
+def _call_groq(prompt: str, runtime: dict[str, object]) -> Optional[str]:
+	"""Call Groq chat completions endpoint and return refined text."""
+	api_key = str(runtime.get("groq_api_key", "")).strip()
+	if not api_key:
+		logger.warning("LLM provider=groq but GROQ_API_KEY is missing")
+		return None
+
+	model_name = str(runtime.get("groq_model", settings.groq_model)).strip()
+	url = "https://api.groq.com/openai/v1/chat/completions"
+	headers = {
+		"Authorization": f"Bearer {api_key}",
+		"Content-Type": "application/json",
+	}
+	payload = {
+		"model": model_name,
+		"messages": [
+			{"role": "system", "content": SYSTEM_PROMPT},
+			{"role": "user", "content": prompt},
+		],
+		"temperature": 0.1,
+		"max_tokens": 512,
+	}
+
+	start_time = perf_counter()
+	response = requests.post(
+		url,
+		headers=headers,
+		json=payload,
+		timeout=(5, int(runtime.get("request_timeout_seconds", settings.llm_request_timeout_seconds))),
+	)
+	response.raise_for_status()
+	data = response.json()
+	choices = data.get("choices") or []
+	if not choices:
+		return None
+	message = choices[0].get("message", {})
+	content = str(message.get("content", "")).strip()
+	logger.info(
+		"Groq generate completed model=%s elapsed_ms=%s response_chars=%s",
+		model_name,
+		int((perf_counter() - start_time) * 1000),
+		len(content),
+	)
+	return content or None
+
+
 def generate_llm_reply(
 	*,
 	message: str,
@@ -444,6 +492,8 @@ def generate_llm_reply(
 			llm_text = _call_ollama(prompt, runtime)
 		elif provider == "openai":
 			llm_text = _call_openai_compatible(prompt, runtime)
+		elif provider == "groq":
+			llm_text = _call_groq(prompt, runtime)
 		else:
 			logger.warning("Unsupported LLM provider: %s", runtime.get("provider"))
 			return None
