@@ -33,3 +33,29 @@ class ChatResponse(BaseModel):
 	response_source: Literal["agent", "agent_rag", "agent_rag_llm"] = "agent"
 	llm_used: bool = False
 	response_time_ms: int = 0
+	plan_id: str | None = None
+	plan_variant: str | None = None
+	plan_variant_reason: str | None = None
+	planner_duration_ms: int = 0
+	outcome_scores: list[dict[str, Any]] = Field(default_factory=list)
+	planner_steps: list[dict[str, Any]] = Field(default_factory=list)
+	critic_changed: bool = False
+	critic_issues: list[str] = Field(default_factory=list)
+
+
+class ChatOutcomeRequest(BaseModel):
+	plan_id: str | None = None
+	intent: str | None = None
+	helpful: bool = False
+	accepted_next_step: bool = False
+	clicked_suggestion: bool = False
+	rating: int | None = None
+	source: Literal["chat", "dashboard", "recommendations", "jobs"] = "chat"
+
+
+class ChatOutcomeResponse(BaseModel):
+	user_id: str
+	plan_id: str | None = None
+	intent: str
+	success_score: int
+	message: str = "Outcome recorded"

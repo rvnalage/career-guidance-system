@@ -52,3 +52,10 @@ def get_user_profile_collection() -> AsyncIOMotorCollection:
 	client = get_mongo_client()
 	database = client[settings.mongodb_database]
 	return database[settings.mongodb_user_profile_collection]
+
+
+def get_outcome_collection() -> AsyncIOMotorCollection:
+	"""Return the planner outcome telemetry collection handle."""
+	client = get_mongo_client()
+	database = client[settings.mongodb_database]
+	return database[settings.mongodb_outcome_collection]

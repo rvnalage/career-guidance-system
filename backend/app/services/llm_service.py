@@ -256,8 +256,7 @@ def get_llm_runtime_status() -> dict[str, object]:
 	runtime = _resolve_runtime_config()
 	provider = str(runtime.get("provider", "ollama")).strip().lower()
 	finetuned = str(runtime.get("finetuned_model", "")).strip()
-	ollama_finetuned_active = provider == "ol +-
-	-lama" and bool(finetuned)
+	ollama_finetuned_active = provider == "ollama" and bool(finetuned)
 	return {
 		"enabled": bool(runtime.get("enabled", False)),
 		"require_rag_context": bool(runtime.get("require_rag_context", True)),

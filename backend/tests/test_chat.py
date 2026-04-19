@@ -34,6 +34,9 @@ def test_chat_route_learning_intent(client):
 	assert isinstance(body["llm_used"], bool)
 	assert isinstance(body["response_time_ms"], int)
 	assert body["response_time_ms"] >= 0
+	assert body.get("plan_variant") is not None
+	assert body["plan_variant"].startswith("learning_path:")
+	assert isinstance(body.get("plan_variant_reason"), str)
 	assert "plan" in body["suggested_next_step"].lower() or "share" in body["suggested_next_step"].lower()
 
 

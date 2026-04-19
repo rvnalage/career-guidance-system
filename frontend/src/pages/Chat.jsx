@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
+import PlannerTrace from "../components/Chat/PlannerTrace";
 import ConfirmModal from "../components/Common/ConfirmModal";
 import { apiClient } from "../services/api";
 
@@ -88,6 +89,7 @@ function ChatPage({ isAuthenticated, currentUser }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [pendingClearTarget, setPendingClearTarget] = useState(null);
+    const [outcomeStatusByMessage, setOutcomeStatusByMessage] = useState({});
     const chatEndRef = useRef(null);
     const sendInFlightRef = useRef(false);
 
@@ -116,6 +118,14 @@ function ChatPage({ isAuthenticated, currentUser }) {
                     responseSource: entry.response_source,
                     llmUsed: entry.llm_used,
                     responseTimeMs: entry.response_time_ms,
+                    planId: entry.plan_id || null,
+                    planVariant: entry.plan_variant || null,
+                    planVariantReason: entry.plan_variant_reason || null,
+                    plannerDurationMs: Number(entry.planner_duration_ms || 0),
+                    outcomeScores: entry.outcome_scores || [],
+                    plannerSteps: entry.planner_steps || [],
+                    criticChanged: Boolean(entry.critic_changed),
+                    criticIssues: entry.critic_issues || [],
                 }));
                 setChat(history);
             } catch (err) {
@@ -160,6 +170,14 @@ function ChatPage({ isAuthenticated, currentUser }) {
                     responseSource: response.data.response_source,
                     llmUsed: response.data.llm_used,
                     responseTimeMs: response.data.response_time_ms,
+                    planId: response.data.plan_id || null,
+                    planVariant: response.data.plan_variant || null,
+                    planVariantReason: response.data.plan_variant_reason || null,
+                    plannerDurationMs: Number(response.data.planner_duration_ms || 0),
+                    outcomeScores: response.data.outcome_scores || [],
+                    plannerSteps: response.data.planner_steps || [],
+                    criticChanged: Boolean(response.data.critic_changed),
+                    criticIssues: response.data.critic_issues || [],
                 },
             ]);
         } catch (err) {
@@ -183,11 +201,49 @@ function ChatPage({ isAuthenticated, currentUser }) {
         }
     };
 
+    const inferIntentFromEntry = (entry) => {
+        const step = (entry?.plannerSteps || []).find((item) => String(item?.name || "").startsWith("primary_"));
+        return step?.name ? String(step.name).replace("primary_", "") : "career_assessment";
+    };
+
+    const submitOutcomeSignal = async (messageKey, entry, payload) => {
+        if (!entry?.planId) {
+            return;
+        }
+        setOutcomeStatusByMessage((prev) => ({
+            ...prev,
+            [messageKey]: { ...(prev[messageKey] || {}), pending: true },
+        }));
+        try {
+            const body = {
+                plan_id: entry.planId,
+                intent: inferIntentFromEntry(entry),
+                source: "chat",
+                ...payload,
+            };
+            if (isAuthenticated) {
+                await apiClient.post("/chat/outcome/me", body);
+            } else {
+                await apiClient.post("/chat/outcome", body);
+            }
+            setOutcomeStatusByMessage((prev) => ({
+                ...prev,
+                [messageKey]: { ...(prev[messageKey] || {}), pending: false, submitted: true, ...payload },
+            }));
+        } catch {
+            setOutcomeStatusByMessage((prev) => ({
+                ...prev,
+                [messageKey]: { ...(prev[messageKey] || {}), pending: false, error: true },
+            }));
+        }
+    };
+
     const clearSavedHistory = async () => {
         setError("");
         try {
             await apiClient.delete("/history/me");
             setChat([]);
+            setOutcomeStatusByMessage({});
         } catch (err) {
             setError(err.response?.data?.detail || "Could not clear chat history");
         }
@@ -226,8 +282,11 @@ function ChatPage({ isAuthenticated, currentUser }) {
                         </div>
                     </div>
                 ) : null}
-                {chat.map((entry, index) => (
-                    <article key={`${entry.role}-${index}`} className={`chat-bubble ${entry.role}`}>
+                {chat.map((entry, index) => {
+                    const messageKey = `${entry.role}-${index}`;
+                    const outcomeState = outcomeStatusByMessage[messageKey] || {};
+                    return (
+                    <article key={messageKey} className={`chat-bubble ${entry.role}`}>
                         <div className="bubble-avatar" aria-hidden="true">
                             {entry.role === "user" ? "🧑‍💻" : "🤖"}
                         </div>
@@ -235,7 +294,7 @@ function ChatPage({ isAuthenticated, currentUser }) {
                             <div className="bubble-content">
                                 {renderMessage(entry.text)}
                             </div>
-                            {(entry.responseSource || entry.nextStep || entry.citations?.length) ? (
+                            {(entry.responseSource || entry.nextStep || entry.citations?.length || entry.planId || entry.plannerDurationMs || entry.outcomeScores?.length || entry.plannerSteps?.length || entry.criticChanged || entry.criticIssues?.length) ? (
                                 <div className="bubble-meta">
                                     {entry.responseSource ? (
                                         <div className="bubble-meta-row">
@@ -248,6 +307,48 @@ function ChatPage({ isAuthenticated, currentUser }) {
                                     {entry.nextStep ? (
                                         <div className="next-step-pill">
                                             <span>💡</span> {entry.nextStep}
+                                        </div>
+                                    ) : null}
+                                    <PlannerTrace
+                                        steps={entry.plannerSteps}
+                                        criticChanged={entry.criticChanged}
+                                        criticIssues={entry.criticIssues}
+                                        planId={entry.planId}
+                                        planVariant={entry.planVariant}
+                                        planVariantReason={entry.planVariantReason}
+                                        plannerDurationMs={entry.plannerDurationMs}
+                                        outcomeScores={entry.outcomeScores}
+                                    />
+                                    {entry.role === "assistant" && entry.planId ? (
+                                        <div className="chat-outcome-row">
+                                            <button
+                                                type="button"
+                                                className="outcome-chip"
+                                                disabled={outcomeState.pending}
+                                                onClick={() => submitOutcomeSignal(messageKey, entry, { helpful: true, rating: 5 })}
+                                            >
+                                                Helpful
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="outcome-chip"
+                                                disabled={outcomeState.pending}
+                                                onClick={() => submitOutcomeSignal(messageKey, entry, { helpful: false, rating: 2 })}
+                                            >
+                                                Not helpful
+                                            </button>
+                                            {entry.nextStep ? (
+                                                <button
+                                                    type="button"
+                                                    className="outcome-chip"
+                                                    disabled={outcomeState.pending}
+                                                    onClick={() => submitOutcomeSignal(messageKey, entry, { accepted_next_step: true, clicked_suggestion: true, helpful: true, rating: 4 })}
+                                                >
+                                                    Used next step
+                                                </button>
+                                            ) : null}
+                                            {outcomeState.submitted ? <span className="outcome-status">Feedback saved</span> : null}
+                                            {outcomeState.error ? <span className="outcome-status error">Failed to save</span> : null}
                                         </div>
                                     ) : null}
                                     {entry.citations?.length ? (
@@ -265,7 +366,7 @@ function ChatPage({ isAuthenticated, currentUser }) {
                             ) : null}
                         </div>
                     </article>
-                ))}
+                );})}
                 {loading ? (
                     <article className="chat-bubble assistant">
                         <div className="bubble-avatar" aria-hidden="true">🤖</div>

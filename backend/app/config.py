@@ -37,6 +37,7 @@ class Settings(BaseSettings):
 	mongodb_feedback_collection: str = "recommendation_feedback"
 	mongodb_psychometric_collection: str = "psychometric_profiles"
 	mongodb_user_profile_collection: str = "user_profiles"
+	mongodb_outcome_collection: str = "planner_outcomes"
 
 	job_market_api_url: str = "https://remotive.com/api/remote-jobs"
 	rag_enabled: bool = Field(default=True, alias="RAG_ENABLED")
