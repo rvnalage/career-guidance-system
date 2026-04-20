@@ -1,4 +1,11 @@
-"""Schemas for profile signal extraction from uploaded files."""
+﻿"""Schemas for profile signal extraction from uploaded files."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from typing import Literal
 

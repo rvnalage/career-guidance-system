@@ -28,6 +28,22 @@ function SettingsPage() {
     const [runtimeStatus, setRuntimeStatus] = useState(null);
     const [ragStatus, setRagStatus] = useState(null);
     const [xaiStatus, setXaiStatus] = useState(null);
+    const [ragTelemetry, setRagTelemetry] = useState(null);
+    const [ragTelemetrySeries, setRagTelemetrySeries] = useState(null);
+    const [networkingMetrics, setNetworkingMetrics] = useState(null);
+    const [networkingForm, setNetworkingForm] = useState({
+        weekly_availability_hours: "",
+        response_rate_percent: "",
+    });
+    const [evalForm, setEvalForm] = useState({
+        query: "ml engineer interview prep",
+        expected_terms: "interview, practice",
+        target_role: "ml engineer",
+        intent: "interview_prep",
+        top_k: 4,
+    });
+    const [evalBusy, setEvalBusy] = useState(false);
+    const [evalResult, setEvalResult] = useState(null);
     const [ragQuery, setRagQuery] = useState("career roadmap");
     const [ragResults, setRagResults] = useState([]);
     const [ragBusy, setRagBusy] = useState(false);
@@ -78,6 +94,8 @@ function SettingsPage() {
         loadStatus();
         loadRagStatus();
         loadXaiStatus();
+        loadRagTelemetry();
+        loadNetworkingMetrics();
     }, []);
 
     const loadXaiStatus = async () => {
@@ -86,6 +104,38 @@ function SettingsPage() {
             setXaiStatus(response.data);
         } catch {
             setXaiStatus(null);
+        }
+    };
+
+    const loadRagTelemetry = async () => {
+        try {
+            const [summaryRes, seriesRes] = await Promise.all([
+                apiClient.get("/rag/telemetry", { params: { user_id: "frontend-session-user", limit: 100 } }),
+                apiClient.get("/rag/telemetry/trends/series", {
+                    params: { user_id: "frontend-session-user", windows: "10,50,100", limit: 120 },
+                }),
+            ]);
+            setRagTelemetry(summaryRes.data || null);
+            setRagTelemetrySeries(seriesRes.data || null);
+        } catch {
+            setRagTelemetry(null);
+            setRagTelemetrySeries(null);
+        }
+    };
+
+    const loadNetworkingMetrics = async () => {
+        try {
+            const response = await apiClient.get("/chat/networking-metrics", {
+                params: { user_id: "frontend-session-user" },
+            });
+            const data = response.data || null;
+            setNetworkingMetrics(data);
+            setNetworkingForm({
+                weekly_availability_hours: data?.last_weekly_availability_hours ?? "",
+                response_rate_percent: data?.last_response_rate_percent ?? "",
+            });
+        } catch {
+            setNetworkingMetrics(null);
         }
     };
 
@@ -141,11 +191,61 @@ function SettingsPage() {
         try {
             await apiClient.post("/rag/ingest/default");
             await loadRagStatus();
+            await loadRagTelemetry();
             setStatus("RAG knowledge ingestion completed.");
         } catch (err) {
             setStatus(err.response?.data?.detail || "Failed to ingest default RAG documents.");
         } finally {
             setRagBusy(false);
+        }
+    };
+
+    const saveNetworkingMetrics = async (event) => {
+        event.preventDefault();
+        const weekly = String(networkingForm.weekly_availability_hours).trim();
+        const rate = String(networkingForm.response_rate_percent).trim();
+        if (!weekly && !rate) {
+            setStatus("Enter at least one networking metric before saving.");
+            return;
+        }
+        try {
+            const payload = {
+                user_id: "frontend-session-user",
+                weekly_availability_hours: weekly ? Number(weekly) : null,
+                response_rate_percent: rate ? Number(rate) : null,
+            };
+            await apiClient.post("/chat/networking-metrics", payload);
+            await loadNetworkingMetrics();
+            setStatus("Networking metrics updated.");
+        } catch (err) {
+            setStatus(err.response?.data?.detail || "Failed to save networking metrics.");
+        }
+    };
+
+    const evaluateRag = async (event) => {
+        event.preventDefault();
+        if (!String(evalForm.query).trim()) {
+            return;
+        }
+        setEvalBusy(true);
+        try {
+            const payload = {
+                query: String(evalForm.query).trim(),
+                expected_terms: String(evalForm.expected_terms)
+                    .split(",")
+                    .map((item) => item.trim())
+                    .filter(Boolean),
+                target_role: String(evalForm.target_role).trim() || null,
+                intent: String(evalForm.intent).trim() || null,
+                top_k: Number(evalForm.top_k) || 4,
+            };
+            const response = await apiClient.post("/rag/evaluate", payload);
+            setEvalResult(response.data || null);
+        } catch (err) {
+            setStatus(err.response?.data?.detail || "Failed to evaluate RAG retrieval.");
+            setEvalResult(null);
+        } finally {
+            setEvalBusy(false);
         }
     };
 
@@ -418,6 +518,132 @@ function SettingsPage() {
                     <div className="metric-item"><span>GROQ_API_KEY</span>{runtimeStatus?.groq_api_key_configured ? "configured" : "missing"}</div>
                     {runtimeStatus?.provider === "groq" && <div className="metric-item"><span>Groq model</span>{runtimeStatus?.groq_model || "-"}</div>}
                 </div>
+            </div>
+
+            <div className="settings-meta card">
+                <h3>RAG Telemetry</h3>
+                <p className="muted-text">Recent retrieval performance over assistant turns.</p>
+                {ragTelemetry ? (
+                    <div className="metric-grid">
+                        <div className="metric-item"><span>Samples</span>{ragTelemetry.samples ?? 0}</div>
+                        <div className="metric-item"><span>Retrieval Avg (ms)</span>{ragTelemetry.retrieval_ms_avg ?? 0}</div>
+                        <div className="metric-item"><span>P95 (ms)</span>{ragTelemetry.retrieval_ms_p95 ?? 0}</div>
+                        <div className="metric-item"><span>Retrieved Avg</span>{ragTelemetry.retrieved_count_avg ?? 0}</div>
+                        <div className="metric-item"><span>Non-empty rate</span>{((ragTelemetry.non_empty_retrieval_rate || 0) * 100).toFixed(1)}%</div>
+                        <div className="metric-item"><span>Auto-filters</span>{((ragTelemetry.auto_filters_rate || 0) * 100).toFixed(1)}%</div>
+                    </div>
+                ) : (
+                    <p className="muted-text">No telemetry summary available yet.</p>
+                )}
+                {ragTelemetrySeries?.labels?.length ? (
+                    <div style={{ marginTop: "0.8rem" }}>
+                        <p className="trace-heading">Trend by Window</p>
+                        <div className="orchestration-list">
+                            {ragTelemetrySeries.labels.map((label, idx) => (
+                                <div key={label} className="orchestration-list-item" style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: "0.8rem" }}>
+                                    <span>{label.replace("last_", "Last ")}</span>
+                                    <strong>{Number(ragTelemetrySeries.retrieval_ms_avg?.[idx] || 0).toFixed(0)} ms</strong>
+                                    <strong>{Number((ragTelemetrySeries.non_empty_retrieval_rate?.[idx] || 0) * 100).toFixed(0)}%</strong>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : null}
+            </div>
+
+            <div className="settings-meta card">
+                <h3>Networking Metrics</h3>
+                <p className="muted-text">Persist weekly availability and response rates used for networking cadence tuning.</p>
+                <form className="settings-form" onSubmit={saveNetworkingMetrics}>
+                    <label>
+                        Weekly availability (hours)
+                        <input
+                            type="number"
+                            min="1"
+                            max="80"
+                            value={networkingForm.weekly_availability_hours}
+                            onChange={(event) => setNetworkingForm((prev) => ({ ...prev, weekly_availability_hours: event.target.value }))}
+                        />
+                    </label>
+                    <label>
+                        Response rate (%)
+                        <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={networkingForm.response_rate_percent}
+                            onChange={(event) => setNetworkingForm((prev) => ({ ...prev, response_rate_percent: event.target.value }))}
+                        />
+                    </label>
+                    <div className="settings-actions">
+                        <button className="button" type="submit">Save Networking Metrics</button>
+                    </div>
+                </form>
+                {networkingMetrics ? (
+                    <div className="metric-grid">
+                        <div className="metric-item"><span>Samples</span>{networkingMetrics.samples ?? 0}</div>
+                        <div className="metric-item"><span>Avg weekly hours</span>{networkingMetrics.avg_weekly_availability_hours ?? "-"}</div>
+                        <div className="metric-item"><span>Avg response rate</span>{networkingMetrics.avg_response_rate_percent ?? "-"}%</div>
+                        <div className="metric-item"><span>Last weekly hours</span>{networkingMetrics.last_weekly_availability_hours ?? "-"}</div>
+                        <div className="metric-item"><span>Last response rate</span>{networkingMetrics.last_response_rate_percent ?? "-"}%</div>
+                    </div>
+                ) : null}
+            </div>
+
+            <div className="settings-meta card">
+                <h3>RAG Evaluate</h3>
+                <p className="muted-text">Run an inline retrieval quality check against expected terms.</p>
+                <form className="settings-form" onSubmit={evaluateRag}>
+                    <label>
+                        Query
+                        <input
+                            value={evalForm.query}
+                            onChange={(event) => setEvalForm((prev) => ({ ...prev, query: event.target.value }))}
+                        />
+                    </label>
+                    <label>
+                        Expected terms (comma separated)
+                        <input
+                            value={evalForm.expected_terms}
+                            onChange={(event) => setEvalForm((prev) => ({ ...prev, expected_terms: event.target.value }))}
+                        />
+                    </label>
+                    <label>
+                        Intent
+                        <input
+                            value={evalForm.intent}
+                            onChange={(event) => setEvalForm((prev) => ({ ...prev, intent: event.target.value }))}
+                        />
+                    </label>
+                    <label>
+                        Target role
+                        <input
+                            value={evalForm.target_role}
+                            onChange={(event) => setEvalForm((prev) => ({ ...prev, target_role: event.target.value }))}
+                        />
+                    </label>
+                    <label>
+                        Top-K
+                        <input
+                            type="number"
+                            min="1"
+                            max="25"
+                            value={evalForm.top_k}
+                            onChange={(event) => setEvalForm((prev) => ({ ...prev, top_k: event.target.value }))}
+                        />
+                    </label>
+                    <div className="settings-actions">
+                        <button className="button" type="submit" disabled={evalBusy}>{evalBusy ? "Evaluating..." : "Run RAG Evaluate"}</button>
+                    </div>
+                </form>
+                {evalResult ? (
+                    <div className="metric-grid">
+                        <div className="metric-item"><span>Retrieved</span>{evalResult.retrieved_count ?? 0}</div>
+                        <div className="metric-item"><span>Term coverage</span>{evalResult.term_coverage == null ? "-" : `${(evalResult.term_coverage * 100).toFixed(1)}%`}</div>
+                        <div className="metric-item"><span>Source recall@k</span>{evalResult.source_recall_at_k == null ? "-" : `${(evalResult.source_recall_at_k * 100).toFixed(1)}%`}</div>
+                        <div className="metric-item"><span>Matched terms</span>{(evalResult.matched_terms || []).join(", ") || "-"}</div>
+                    </div>
+                ) : null}
             </div>
         </section >
     );

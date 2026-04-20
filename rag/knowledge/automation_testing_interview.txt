@@ -1,0 +1,61 @@
+Title: QA Automation Engineer Interview Preparation
+Intent: interview_prep
+Role: qa automation engineer
+Specialization: automation testing, api testing, ui testing, ci cd
+Seniority: fresher
+Tags: test pyramid, flaky tests, selenium, playwright, contract testing
+
+QA Automation Engineer Interview Blueprint
+
+Round Types:
+1. Automation fundamentals and framework design
+2. API testing and contract validation
+3. UI automation debugging
+4. CI pipeline and reliability engineering
+5. Behavioral and collaboration round
+
+Core Topics:
+- Test pyramid and ROI trade-offs across unit, integration, and end-to-end tests
+- API testing strategy: happy paths, edge cases, and negative validation
+- Test data management and environment isolation
+- Flaky test detection, root cause analysis, and stabilization techniques
+- CI quality gates, parallel runs, and failure triage
+
+Question Bank:
+- How do you decide what to automate and what to keep manual?
+- Explain test pyramid decisions for a product with rapid releases.
+- How do you debug flaky tests in Selenium or Playwright?
+- What assertions do you prioritize in API testing for critical endpoints?
+- How do you design retry strategy without masking real defects?
+- How do you structure automation for maintainability and low false positives?
+
+Evaluation Rubric:
+- Automation architecture clarity
+- Risk-based test prioritization
+- API testing depth and failure diagnostics
+- CI ownership and collaboration with developers
+- Communication quality with concrete examples
+
+30-60-90 Day Preparation Plan:
+30 days:
+- Build a small automation framework with page object patterns.
+- Write API tests for auth, pagination, and validation rules.
+
+60 days:
+- Add reporting, retries with safeguards, and flaky-test dashboards.
+- Integrate tests into CI and add failure classification.
+
+90 days:
+- Harden framework for parallel execution and data-driven testing.
+- Present measurable improvement in defect leakage and test stability.
+
+Common Mistakes:
+- Over-automating unstable UI flows without API coverage
+- Ignoring flaky tests until trust in suite is lost
+- Treating CI failures as infra-only issues without root-cause analysis
+- Missing contract tests for backward compatibility
+
+Portfolio Signals:
+- Automation framework repository with CI workflow
+- API testing collection with clear assertions and documentation
+- Failure triage playbook and flaky test remediation examples

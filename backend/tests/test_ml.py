@@ -12,7 +12,7 @@ def test_generate_career_recommendations_returns_top_three():
 		education_level="master",
 	)
 
-	results = generate_career_recommendations(payload)
+	results = asyncio.run(generate_career_recommendations(payload))
 
 	assert len(results) == 3
 	assert results[0].role == "Machine Learning Engineer"
@@ -27,7 +27,7 @@ def test_recommendation_confidence_sorted_descending():
 		education_level="bachelor",
 	)
 
-	results = generate_career_recommendations(payload)
+	results = asyncio.run(generate_career_recommendations(payload))
 	confidences = [result.confidence for result in results]
 
 	assert confidences == sorted(confidences, reverse=True)

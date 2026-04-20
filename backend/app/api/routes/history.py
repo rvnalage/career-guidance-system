@@ -1,4 +1,11 @@
-"""History API routes for reading and clearing persisted chat conversations."""
+﻿"""History API routes for reading and clearing persisted chat conversations."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from typing import Annotated
 
@@ -31,3 +38,4 @@ async def clear_history_me(
 		"deleted_count": deleted_count,
 		"message": "Chat history cleared",
 	}
+

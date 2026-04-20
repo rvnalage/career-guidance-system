@@ -11,6 +11,10 @@ Week 2:
 Study SQL deeply: joins, subqueries, window functions, indexing.
 Practice 20 SQL interview questions with explanations.
 
+Data Science Interview Add-on:
+- Revise statistics fundamentals: probability distributions, hypothesis testing, confidence intervals.
+- Practice data science case study rounds focused on problem framing, feature selection, and metric trade-offs.
+
 Week 3:
 Revise machine learning basics: bias-variance, overfitting, train-validation-test split, evaluation metrics.
 Prepare short explanations for common models: linear regression, logistic regression, decision tree, random forest.

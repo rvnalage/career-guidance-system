@@ -1,4 +1,11 @@
-"""Diagnostics routes for inspecting the optional LLM runtime configuration."""
+﻿"""Diagnostics routes for inspecting the optional LLM runtime configuration."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -54,3 +61,4 @@ async def llm_update_config(payload: LLMRuntimeConfigUpdate) -> dict[str, object
 async def llm_reset_config() -> dict[str, object]:
 	"""Clear all runtime overrides and revert to environment-backed defaults."""
 	return reset_llm_runtime_config()
+

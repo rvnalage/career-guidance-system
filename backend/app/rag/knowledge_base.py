@@ -1,4 +1,11 @@
-"""Knowledge-base construction and document chunk ingestion helpers for RAG."""
+﻿"""Knowledge-base construction and document chunk ingestion helpers for RAG."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from __future__ import annotations
 
@@ -91,25 +98,166 @@ def default_one_note_extract_path() -> Path:
 
 
 def chunk_text(text: str, chunk_size: int = 700, overlap: int = 120) -> list[str]:
-	"""Split long text into overlapping chunks suitable for simple local retrieval."""
-	clean = " ".join(text.split())
-	if not clean:
+	"""Split text into sentence-aware overlapping chunks for better semantic coherence."""
+	if not text or not text.strip():
 		return []
 	if overlap < 0:
 		overlap = 0
 	if overlap >= chunk_size:
 		overlap = max(0, chunk_size // 4)
 
+	paragraphs = [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
+	if not paragraphs:
+		paragraphs = [text.strip()]
+
+	sentences: list[str] = []
+	for paragraph in paragraphs:
+		normalized = " ".join(paragraph.split())
+		parts = re.split(r"(?<=[.!?])\s+", normalized)
+		for part in parts:
+			sentence = part.strip()
+			if sentence:
+				sentences.append(sentence)
+
+	if not sentences:
+		clean = " ".join(text.split())
+		if not clean:
+			return []
+		sentences = [clean]
+
 	chunks: list[str] = []
-	start = 0
-	step = max(1, chunk_size - overlap)
-	while start < len(clean):
-		end = min(len(clean), start + chunk_size)
-		chunks.append(clean[start:end])
-		if end >= len(clean):
-			break
-		start += step
+	current_sentences: list[str] = []
+	current_len = 0
+	for sentence in sentences:
+		sentence_len = len(sentence)
+		if current_sentences and current_len + 1 + sentence_len > chunk_size:
+			chunk = " ".join(current_sentences).strip()
+			if chunk:
+				chunks.append(chunk)
+			if overlap > 0:
+				overlap_sentences: list[str] = []
+				overlap_len = 0
+				for candidate in reversed(current_sentences):
+					candidate_len = len(candidate) + (1 if overlap_sentences else 0)
+					if overlap_len + candidate_len > overlap:
+						break
+					overlap_sentences.insert(0, candidate)
+					overlap_len += candidate_len
+				current_sentences = overlap_sentences
+				current_len = len(" ".join(current_sentences)) if current_sentences else 0
+			else:
+				current_sentences = []
+				current_len = 0
+
+		if current_sentences:
+			current_sentences.append(sentence)
+			current_len = len(" ".join(current_sentences))
+		else:
+			current_sentences = [sentence]
+			current_len = sentence_len
+
+	if current_sentences:
+		chunk = " ".join(current_sentences).strip()
+		if chunk:
+			chunks.append(chunk)
 	return chunks
+
+
+def _infer_topic_from_text(text: str) -> str:
+	"""Infer a coarse topic label from text for retrieval metadata filtering."""
+	value = text.lower()
+	if any(token in value for token in ["interview", "mock", "technical round", "hr round"]):
+		return "interview"
+	if any(token in value for token in ["roadmap", "learning", "upskill", "course", "study"]):
+		return "learning"
+	if any(token in value for token in ["network", "outreach", "referral", "linkedin"]):
+		return "networking"
+	if any(token in value for token in ["job", "application", "resume", "portfolio"]):
+		return "job_search"
+	return "document"
+
+
+def _infer_role_from_name(file_name: str) -> str | None:
+	"""Infer role hint from file names to support role-aware filtering and reranking."""
+	name = file_name.lower().replace("-", "_").replace(" ", "_")
+	role_aliases = {
+		"data_scientist": "data scientist",
+		"data_science": "data scientist",
+		"data_analyst": "data analyst",
+		"data_analysis": "data analyst",
+		"ml_engineer": "ml engineer",
+		"machine_learning_engineer": "ml engineer",
+		"data_engineer": "data engineer",
+		"backend_developer": "backend developer",
+		"devops_engineer": "devops engineer",
+		"ui_ux": "ui/ux designer",
+		"product_analyst": "product analyst",
+		"research_track": "research scientist",
+		"business_analyst": "business analyst",
+		"digital_marketing": "digital marketing specialist",
+		"project_manager": "project manager",
+		"automation_testing": "qa automation engineer",
+		"cybersecurity": "cybersecurity analyst",
+		"ai_product_manager": "ai product manager",
+		"ux_researcher": "ux researcher",
+		"database_administrator": "database administrator",
+		"system_administrator": "system administrator",
+		"technical_support": "technical support specialist",
+		"operations_coordinator": "operations coordinator",
+		"finance_analyst": "finance analyst",
+		"supply_chain_analyst": "supply chain analyst",
+	}
+	for token, role in role_aliases.items():
+		if token in name:
+			return role
+	return None
+
+
+def _infer_role_from_text(text: str) -> str | None:
+	"""Infer role hint from chunk content when filenames are generic (for example interview docs)."""
+	value = " ".join(text.lower().split())
+	role_aliases = {
+		"data scientist": "data scientist",
+		"data science": "data scientist",
+		"data analyst": "data analyst",
+		"ml engineer": "ml engineer",
+		"machine learning engineer": "ml engineer",
+		"data engineer": "data engineer",
+		"backend developer": "backend developer",
+		"devops engineer": "devops engineer",
+		"ui ux designer": "ui/ux designer",
+		"product analyst": "product analyst",
+		"research scientist": "research scientist",
+		"business analyst": "business analyst",
+		"digital marketing specialist": "digital marketing specialist",
+		"project manager": "project manager",
+		"qa automation engineer": "qa automation engineer",
+		"cybersecurity analyst": "cybersecurity analyst",
+		"ai product manager": "ai product manager",
+		"ux researcher": "ux researcher",
+		"database administrator": "database administrator",
+		"system administrator": "system administrator",
+		"technical support specialist": "technical support specialist",
+		"operations coordinator": "operations coordinator",
+		"finance analyst": "finance analyst",
+		"supply chain analyst": "supply chain analyst",
+	}
+	for token, role in role_aliases.items():
+		if token in value:
+			return role
+	return None
+
+
+def _infer_min_education(text: str) -> str | None:
+	"""Infer coarse minimum education metadata when explicit level terms appear."""
+	lower = text.lower()
+	if any(token in lower for token in ["phd", "doctorate"]):
+		return "phd"
+	if any(token in lower for token in ["master", "mtech", "ms"]):
+		return "master"
+	if any(token in lower for token in ["bachelor", "btech", "undergraduate"]):
+		return "bachelor"
+	return None
 
 
 def load_document_chunks(directory_path: str | None = None) -> dict[str, Any]:
@@ -161,17 +309,26 @@ def load_document_chunks(directory_path: str | None = None) -> dict[str, Any]:
 				continue
 			seen_chunk_fingerprints.add(fingerprint)
 
+			role_hint = _infer_role_from_name(file_path.name) or _infer_role_from_text(f"{file_path.name} {chunk}")
+			topic_hint = _infer_topic_from_text(f"{file_path.name} {chunk}")
+			min_education_hint = _infer_min_education(f"{file_path.name} {chunk}")
+			metadata: dict[str, str] = {
+				"topic": topic_hint,
+				"file_name": file_path.name.lower(),
+				"chunk_index": str(index),
+			}
+			if role_hint:
+				metadata["role"] = role_hint
+			if min_education_hint:
+				metadata["min_education"] = min_education_hint
+
 			ingested_chunks.append(
 				KnowledgeChunk(
 					title=f"Document Chunk {index}: {file_path.name}",
 					text=chunk,
 					source=str(file_path),
 					source_type="document",
-					metadata={
-						"topic": "document",
-						"file_name": file_path.name.lower(),
-						"chunk_index": str(index),
-					},
+					metadata=metadata,
 				)
 			)
 
@@ -198,3 +355,4 @@ def _fingerprint(text: str) -> str:
 	# Compact near-duplicate detector using first N normalized tokens.
 	tokens = re.findall(r"[a-z0-9]+", text)
 	return " ".join(tokens[:80])
+

@@ -1,4 +1,11 @@
-"""Agent for fit-gap analysis between a student's profile and target roles."""
+﻿"""Agent for fit-gap analysis between a student's profile and target roles."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from typing import Any
 
@@ -36,3 +43,4 @@ class JobMatchingAgent(BaseAgent):
 		"""Ask for concrete job evidence so the fit-gap analysis can become role-specific."""
 		role = self._extract_target_role(message, context) or "your target role"
 		return f"Share your resume plus 5 job links for {role} to produce exact fit-gap recommendations"
+

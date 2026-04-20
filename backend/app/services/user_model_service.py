@@ -1,8 +1,15 @@
-"""Runtime scoring helpers for optional phase-2 user preference model.
+﻿"""Runtime scoring helpers for optional phase-2 user preference model.
 
 The model predicts role affinity from historical feedback-derived features.
 When disabled or unavailable, callers should proceed without model scores.
 """
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from __future__ import annotations
 
@@ -150,3 +157,4 @@ def score_role_preferences(feedback_items: list[dict], roles: list[str]) -> dict
 	if not feedback_items:
 		return {}
 	return _RUNTIME.score_roles(feedback_items, roles)
+

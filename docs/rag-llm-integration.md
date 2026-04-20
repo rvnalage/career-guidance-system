@@ -4,6 +4,8 @@
 
 This document explains how the career guidance system integrates RAG (Retrieval-Augmented Generation) with the LLM to provide grounded, accurate responses based on your career knowledge base.
 
+For ingestion runbooks, chunk-quality controls, and troubleshooting, also see: `docs/rag-ingestion-operations.md`.
+
 **Key Principle:** The LLM doesn't generate from its training data alone—it receives your specific career guidance knowledge as part of the prompt, ensuring responses are grounded in your curated content.
 
 ---
@@ -124,7 +126,7 @@ def retrieve_relevant_chunks(query: str, top_k: int = None) -> list[KnowledgeChu
     # → "interview preparation coding practice STAR storytelling"
     
     # Retrieve from rag/knowledge/ using vector search
-    limit = top_k if top_k is not None else settings.rag_top_k  # Default: 3
+    limit = top_k if top_k is not None else settings.rag_top_k  # Default: 4
     
     results = RETRIEVER.retrieve(
         query=rewritten_query,
@@ -134,7 +136,7 @@ def retrieve_relevant_chunks(query: str, top_k: int = None) -> list[KnowledgeChu
         candidate_pool_size=max(limit, settings.rag_candidate_pool_size),  # 20
     )
     
-    return results  # Top-3 most relevant chunks from rag/knowledge/
+    return results  # Top-k most relevant chunks from rag/knowledge/
 ```
 
 #### `Retriever.retrieve()` - Multi-stage ranking
@@ -380,7 +382,7 @@ Input: User Message
 │   1. Rewrite query for clarity
 │   2. Vector search in rag/knowledge/
 │   3. Rerank with lexical + metadata scoring
-│   Output: top-3 chunks (interview_prep.txt, portfolio.txt, etc.)
+│   Output: top-k chunks (interview_prep.txt, portfolio.txt, etc.)
 │
 ├─→ [Format RAG Context]
 │   Convert chunks to bullet-list string
@@ -447,7 +449,7 @@ LLM_BASE_URL=http://localhost:11434    # Ollama endpoint
 # RAG Gating
 LLM_REQUIRE_RAG_CONTEXT=true           # ← Critical: only use LLM if RAG found context
 RAG_ENABLED=true
-RAG_TOP_K=3                            # Retrieve top-3 chunks
+RAG_TOP_K=4                            # Retrieve top-4 chunks
 
 # Ollama (Local)
 LLM_MODEL=tinyllama:latest             # Base model

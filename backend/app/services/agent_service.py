@@ -1,4 +1,11 @@
-"""Agent routing helpers that bridge intent detection and concrete agent execution."""
+﻿"""Agent routing helpers that bridge intent detection and concrete agent execution."""
+
+# Developer Onboarding Notes:
+# - Layer: intent-to-agent routing service
+# - Role in system: Selects specialist agent from detected intent and returns primary guidance outputs.
+# - Main callers: chat route handlers and planner orchestration service.
+# - Reading tip: Start from get_agent_response_with_confidence, then inspect _resolve_intent fallback flow.
+
 
 from typing import Any
 
@@ -26,7 +33,18 @@ AGENT_REGISTRY = {
 
 
 def _resolve_intent(message: str) -> tuple[str, float, list[str]]:
-	"""Resolve intent via model-first routing when enabled, then fall back to keywords."""
+	"""Resolve intent using model-first strategy with keyword fallback.
+
+	Args:
+		message: Raw user message used for intent detection.
+
+	Returns:
+		Tuple of intent label, confidence score, and matched keyword/model tags.
+
+	Significance:
+		Central routing primitive that keeps behavior stable when ML intent model is
+		unavailable by falling back to deterministic keyword recognizer.
+	"""
 	model_prediction = detect_intent_with_model(message)
 	if model_prediction is not None:
 		return model_prediction.intent, model_prediction.confidence, ["intent_model"]
@@ -34,7 +52,15 @@ def _resolve_intent(message: str) -> tuple[str, float, list[str]]:
 
 
 def get_agent_response(message: str, context: dict[str, Any] | None = None) -> tuple[str, str, str]:
-	"""Return agent output using confidence-gated intent routing without exposing score details."""
+	"""Return agent response without exposing routing diagnostics.
+
+	Significance:
+		Backward-compatible simple interface used by routes/tests that only need
+		intent, reply text, and next-step suggestion.
+
+	Used by:
+		Legacy chat path and agent-focused tests.
+	"""
 	intent, confidence, _ = _resolve_intent(message)
 	if confidence < settings.intent_min_confidence:
 		intent = "career_assessment"
@@ -48,7 +74,18 @@ def get_agent_response_with_confidence(
 	message: str,
 	context: dict[str, Any] | None = None,
 ) -> tuple[str, str, str, float, list[str]]:
-	"""Return agent output together with routing confidence and matched keywords."""
+	"""Return agent response plus routing explainability metadata.
+
+	Returns:
+		Tuple of intent, reply, next step, confidence, and keyword/model matches.
+
+	Significance:
+		Preferred planner-facing entrypoint so downstream orchestration can adapt to
+		routing certainty and preserve traceability in response telemetry.
+
+	Used by:
+		Planner service intent bootstrap flow.
+	"""
 	intent, confidence, matches = _resolve_intent(message)
 	if confidence < settings.intent_min_confidence:
 		intent = "career_assessment"
@@ -56,3 +93,4 @@ def get_agent_response_with_confidence(
 	reply = agent.respond(message, context)
 	next_step = agent.suggested_next_step(message, context)
 	return intent, reply, next_step, confidence, matches
+

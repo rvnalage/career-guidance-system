@@ -1,0 +1,83 @@
+Title: Stable and Non-Trending Roles Coverage Matrix
+Intent: career_assessment
+Role: multi-role
+Specialization: stable demand and niche careers
+Seniority: fresher to experienced
+Tags: stable roles, non-trending careers, operations and support roles
+
+Stable Role: Database Administrator
+Core Skills:
+- SQL administration and performance tuning
+- Backup, restore, and replication management
+- Access control and database security
+- Capacity planning and availability monitoring
+Interview Focus:
+- High availability architecture
+- Recovery planning and RPO/RTO trade-offs
+- Slow query troubleshooting
+
+Stable Role: System Administrator
+Core Skills:
+- Linux and Windows server administration
+- Patch management and service reliability
+- Identity and access control operations
+- Monitoring, alerting, and incident handling
+Interview Focus:
+- Service outage troubleshooting
+- Preventive maintenance strategy
+- Access and security hardening
+
+Stable Role: Technical Support Specialist
+Core Skills:
+- Structured troubleshooting and root cause analysis
+- Ticket lifecycle management and SLA adherence
+- Customer communication and expectation management
+- Documentation of recurring issues and fixes
+Interview Focus:
+- Critical incident handling under time pressure
+- Escalation decision quality
+- Knowledge base contribution practices
+
+Stable Role: Operations Coordinator
+Core Skills:
+- Process coordination across teams and vendors
+- KPI tracking and execution reporting
+- Vendor communication and follow-up discipline
+- Workflow improvement and risk tracking
+Interview Focus:
+- Process bottleneck removal
+- Coordination under changing priorities
+- Delivery quality monitoring
+
+Stable Role: QA Manual Tester
+Core Skills:
+- Test case design and exploratory testing
+- Bug reproduction and defect reporting quality
+- Regression planning and release readiness checks
+- Requirement traceability and edge case discovery
+Interview Focus:
+- Defect severity-priority reasoning
+- Test strategy for ambiguous requirements
+- Risk-based test planning
+
+Stable Role: Documentation Specialist
+Core Skills:
+- Technical writing and information architecture
+- User guide and SOP creation
+- Stakeholder interviews for content accuracy
+- Version control and publication workflows
+Interview Focus:
+- Simplifying complex technical topics
+- Documentation quality metrics
+- Cross-team collaboration for release notes
+
+Stable Role: MIS Analyst
+Core Skills:
+- Reporting automation and dashboard maintenance
+- Data validation and business metric consistency
+- Excel and SQL-based reporting workflows
+- Periodic management reporting cadence
+Interview Focus:
+- Data quality assurance methods
+- Executive reporting clarity
+- Root cause analysis for KPI deviations

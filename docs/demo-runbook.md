@@ -20,6 +20,10 @@ python -m pip install -r backend/requirements.txt
 powershell -ExecutionPolicy Bypass -File scripts/start_backend.ps1 -HostName 127.0.0.1 -Port 8000
 ```
 
+Shutdown note:
+- If you see `asyncio.exceptions.CancelledError` after `Application startup complete`, it is usually an expected shutdown/reload event (for example Ctrl+C, terminal stop, or `--reload` restart), not a startup failure.
+- If the server keeps running and `/health` responds, no action is required.
+
 ### Frontend
 
 Default command:
@@ -253,6 +257,36 @@ Expected highlights:
 - `document_chunks > 0` after successful ingest
 - `ingested_files` includes 16 txt files from `rag/knowledge/` (backend_developer_path.txt, ml_engineer_path.txt, etc.)
 
+3. Validate retrieval quality quickly:
+
+```bash
+curl "http://localhost:8000/api/v1/rag/search?query=interview%20prep%20for%20ml%20engineer"
+
+curl -X POST http://localhost:8000/api/v1/rag/evaluate \
+  -H "Content-Type: application/json" \
+  -d '{"query":"ml engineer interview prep","expected_terms":["interview","practice"],"target_role":"ml engineer","intent":"interview_prep"}'
+```
+
+4. Check telemetry after a few chat turns:
+
+```bash
+curl "http://localhost:8000/api/v1/rag/telemetry?user_id=demo-user&limit=100"
+curl "http://localhost:8000/api/v1/rag/telemetry/trends?user_id=demo-user&windows=10,50,100"
+curl "http://localhost:8000/api/v1/rag/telemetry/trends/series?user_id=demo-user&windows=10,50,100"
+curl "http://localhost:8000/api/v1/rag/telemetry/trends/combined?user_id=demo-user&windows=10,50,100"
+```
+
+5. If ingestion did not load chunks:
+
+```bash
+curl -X POST http://localhost:8000/api/v1/rag/ingest \
+  -H "Content-Type: application/json" \
+  -d '{"directory_path":"E:/documents/rahul_sorted/mtech_documents/mtech_final_year_project/career-guidance-system/rag/knowledge"}'
+```
+
+For full operational details, see `docs/rag-ingestion-operations.md`.
+For a visual lifecycle view, see the "Visual Flow" section in `docs/rag-ingestion-operations.md`.
+
 ## 5. LLM & Explainability Features
 
 ### Check LLM Runtime Status
@@ -373,7 +407,15 @@ Outputs `drift_report.json` and exits with code 2 if input drift detected (CI-fr
 
 ## 8. Notes
 
-- **RAG Knowledge Base**: Located at `career-guidance-system/rag/knowledge/` — 16 curated career guidance documents (consolidated from extraction). Source of truth for both RAG retrieval and fine-tuning training data.
+### 8.1 Latest Implementation Notes (April 2026)
+
+- **Psychometric scoring update**: `score_psychometric` now uses all provided input dimensions when building `recommended_domains`; `top_traits` remains a top-3 summary for UI readability.
+- **Psychometric contract**: `normalized_scores` are percentage-style values in range 0-100, persisted in `psychometric_profiles` and reused for recommendation enrichment.
+- **RAG corpus expansion**: Knowledge coverage now includes engineering and non-engineering paths plus trending and stable/non-trending role catalogs.
+- **Manifest quality gate**: `rag/knowledge/eval_manifest.json` is actively enforced via local script + pytest gate (`RAG_MANIFEST_ENFORCE=1`) and CI workflow.
+- **Reporting workflow**: `scripts/generate_rag_eval_report.py` writes trend snapshots to `docs/rag-eval-report.md` and run history to `logs/rag_eval_history.jsonl`.
+
+- **RAG Knowledge Base**: Located at `career-guidance-system/rag/knowledge/` — expanded engineering and non-engineering role corpus (including trending and stable role catalogs). Source of truth for both RAG retrieval and fine-tuning training data.
 
 - **LLM Integration**: TinyLlama via Ollama enhances agent responses using RAG context when enabled. Prompt is grounded (explicit forbid hallucination), constrained by `LLM_REQUIRE_RAG_CONTEXT` flag, and falls back to deterministic agent response if LLM fails/times out. See [RAG + LLM Integration](rag-llm-integration.md) for code-level details.
 
@@ -403,7 +445,7 @@ python -m pytest -v tests/
 Or individual test modules:
 
 ```bash
-python -m pytest -v tests/test_auth.py tests/test_integration.py tests/test_ml.py tests/test_agents.py tests/test_chat.py tests/test_rag.py tests/test_recommendations.py tests/test_dashboard.py
+python -m pytest -v tests/test_auth.py tests/test_integration.py tests/test_ml.py tests/test_agents.py tests/test_chat.py tests/test_rag.py tests/test_cf_bandit_service.py tests/test_modeling_status.py
 ```
 
 Expected: All tests pass; includes coverage for:

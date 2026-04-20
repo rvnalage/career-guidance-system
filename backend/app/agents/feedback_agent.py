@@ -1,4 +1,11 @@
-"""Agent for collecting structured recommendation feedback from the user."""
+﻿"""Agent for collecting structured recommendation feedback from the user."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from typing import Any
 
@@ -20,3 +27,4 @@ class FeedbackAgent(BaseAgent):
 	def suggested_next_step(self, message: str, context: dict[str, Any] | None = None) -> str:
 		"""Tell the user which structured fields are required to record recommendation feedback."""
 		return "Provide role, helpful flag, rating, and feedback tags to record recommendation feedback"
+

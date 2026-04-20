@@ -1,4 +1,11 @@
-"""Security and token helper functions used by authentication and request validation."""
+﻿"""Security and token helper functions used by authentication and request validation."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 import base64
 from datetime import datetime, timedelta, timezone
@@ -74,3 +81,4 @@ def decode_access_token(token: str) -> dict[str, Any] | None:
 		return payload
 	except JWTError:
 		return None
+

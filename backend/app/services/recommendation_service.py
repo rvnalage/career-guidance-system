@@ -1,9 +1,16 @@
-"""Recommendation scoring, explanation, feedback, and history persistence helpers.
+﻿"""Recommendation scoring, explanation, feedback, and history persistence helpers.
 
 This module implements a deterministic recommendation engine that combines skills,
 interests, education fit, and feedback-derived personalization, then exposes both
 plain recommendations and XAI-friendly contribution outputs.
 """
+
+# Developer Onboarding Notes:
+# - Layer: recommendation engine service
+# - Role in system: Scores career-role fit, adds explanations, and stores recommendation/feedback memory.
+# - Main callers: `app.api.routes.recommendation` and planner orchestration in `app.services.planner_service`.
+# - Reading tip: Start from `generate_career_recommendations`, then inspect `_score_paths` and personalization helpers.
+
 
 from datetime import datetime, timezone
 
@@ -17,11 +24,12 @@ from app.schemas.recommendation import (
 )
 from app.database.mongo_db import get_feedback_collection, get_recommendation_collection
 from app.config import settings
-from app.utils.constants import CAREER_PATHS, EDUCATION_ORDER
+from app.utils.constants import CAREER_PATHS, EDUCATION_ORDER, SKILL_RESOURCES
 from app.utils.logger import get_logger
 from app.services.user_model_service import score_role_preferences
 from app.services.cf_service import score_cf_roles
 from app.services.bandit_service import record_feedback as bandit_record_feedback, rerank_recommendations
+from app.services.llm_service import generate_recommendation_reason_via_llm
 from app.xai.explainer import explain_recommendation
 
 _recommendation_fallback: dict[str, list[dict]] = {}
@@ -62,9 +70,59 @@ def _reason_text(skill_matches: int, interest_matches: int, required_skills: int
 	)
 
 
+async def _reason_text_with_llm(
+	user_skills: list[str],
+	user_interests: list[str],
+	role: str,
+	skill_matches: int,
+	total_required_skills: int,
+	interest_matches: int,
+	education_fit: float,
+	confidence: float,
+) -> str:
+	"""Try to generate rich LLM explanation, fall back to numeric summary if unavailable."""
+	llm_reason = await generate_recommendation_reason_via_llm(
+		user_role=role,
+		user_skills=user_skills,
+		user_interests=user_interests,
+		matched_skills=skill_matches,
+		total_required_skills=total_required_skills,
+		interest_matches=interest_matches,
+		education_fit=education_fit,
+		confidence_score=confidence,
+	)
+	if llm_reason:
+		return llm_reason
+	return _reason_text(skill_matches, interest_matches, total_required_skills)
+
+
 def _bounded(value: float, low: float, high: float) -> float:
 	"""Clamp a numeric value into the requested closed interval."""
 	return max(low, min(high, value))
+
+
+def _missing_skills_for_role(role: str, user_skills: list[str]) -> list[str]:
+	"""Return up to 3 missing required skills for a given role based on current user skills."""
+	role_data = next((item for item in CAREER_PATHS if item["role"] == role), None)
+	if not role_data:
+		return []
+	user_skill_set = {str(skill).strip().lower() for skill in user_skills if str(skill).strip()}
+	missing: list[str] = []
+	for required in role_data["required_skills"]:
+		required_norm = str(required).strip().lower()
+		if required_norm and required_norm not in user_skill_set:
+			missing.append(str(required).strip())
+	return missing[:3]
+
+
+def _upgrade_suggestions_for_gaps(missing_skills: list[str]) -> list[str]:
+	"""Map missing skills to known upgrade resources for UI-ready display."""
+	suggestions: list[str] = []
+	for skill in missing_skills:
+		resource = SKILL_RESOURCES.get(str(skill).strip().lower())
+		if resource:
+			suggestions.append(f"{skill}: {resource}")
+	return suggestions[:3]
 
 
 def _default_personalization_profile() -> dict[str, dict]:
@@ -80,7 +138,12 @@ def _default_personalization_profile() -> dict[str, dict]:
 
 
 def _compute_personalization_profile(feedback_items: list[dict]) -> dict[str, dict]:
-	"""Translate recommendation feedback into per-role bonuses and feature weight shifts."""
+	"""Convert feedback history into role bonuses and dynamic feature weights.
+
+	Significance:
+		Implements lightweight online personalization without retraining a model.
+		Positive/negative feedback nudges role priors and scoring weights.
+	"""
 	profile = _default_personalization_profile()
 	role_bonus = profile["role_bonus"]
 	weights = profile["weights"]
@@ -117,7 +180,18 @@ def _compute_personalization_profile(feedback_items: list[dict]) -> dict[str, di
 
 
 async def get_personalization_profile(user_id: str) -> dict[str, dict]:
-	"""Load a user's derived personalization profile from feedback history."""
+	"""Load and assemble personalization profile for one user.
+
+	Returns:
+		Dictionary with role bonuses, normalized weights, and optional CF role scores.
+
+	Significance:
+		Single entrypoint that fuses heuristic feedback shaping + optional user-model and
+		collaborative-filtering signals used by `_score_paths`.
+
+	Used by:
+		Recommendation endpoints and planner-driven recommendation flow.
+	"""
 	try:
 		collection = get_feedback_collection()
 		cursor = collection.find({"user_id": user_id}).sort("created_at", 1)
@@ -150,7 +224,19 @@ def _score_paths(
 	payload: RecommendationRequest,
 	personalization_profile: dict[str, dict] | None = None,
 ) -> list[tuple[float, CareerRecommendation, list[FeatureContribution]]]:
-	"""Score all supported career paths and return ranked recommendations with raw contributions."""
+	"""Score all supported roles and return ranked recommendations with contributions.
+
+	Args:
+		payload: User profile signals (skills, interests, education).
+		personalization_profile: Optional precomputed profile; defaults to neutral weights.
+
+	Returns:
+		List of tuples: `(final_score, recommendation, feature_contributions)` sorted descending.
+
+	Significance:
+		Core deterministic scorer for recommendation quality and explainability.
+		Every downstream recommendation/explanation API depends on this function.
+	"""
 	user_skills = _normalize(payload.skills)
 	user_interests = _normalize(payload.interests)
 	profile = personalization_profile or _default_personalization_profile()
@@ -173,7 +259,7 @@ def _score_paths(
 		education_score = _education_score(payload.education_level, path["min_education"])
 		personalization_bonus = _bounded(float(role_bonus_map.get(role, 0.0)), -0.2, 0.2)
 
-		# CF additive term — kept separate from personalization_bonus for XAI transparency.
+		# CF additive term â€” kept separate from personalization_bonus for XAI transparency.
 		cf_raw = float(cf_scores_map.get(role, 0.5))
 		alpha = max(0.0, min(1.0, settings.cf_model_alpha))
 		cf_contribution = _bounded((cf_raw - 0.5) * 2.0 * 0.1 * alpha, -0.1, 0.1)
@@ -206,17 +292,59 @@ def _score_paths(
 	return weighted_recommendations
 
 
-def generate_career_recommendations(
+async def generate_career_recommendations(
 	payload: RecommendationRequest,
 	top_k: int = 3,
 	personalization_profile: dict[str, dict] | None = None,
 ) -> list[CareerRecommendation]:
-	"""Return the top-k ranked career recommendations, optionally reordered by bandit policy."""
+	"""Generate top-k recommendations, then enrich each with gaps and rationale.
+
+	Significance:
+		Primary service API for role suggestions. Combines deterministic ranking,
+		bandit rerank, skill-gap extraction, and optional LLM explanation upgrade.
+
+	Used by:
+		Recommendation route handlers and planner recommendation tool path.
+	"""
 	weighted_recommendations = _score_paths(payload, personalization_profile=personalization_profile)
 	top_candidates = [item[1] for item in weighted_recommendations[:top_k]]
 	reranked_roles = rerank_recommendations([r.role for r in top_candidates])
 	role_to_rec = {r.role: r for r in top_candidates}
-	return [role_to_rec[role] for role in reranked_roles if role in role_to_rec]
+	recs = [role_to_rec[role] for role in reranked_roles if role in role_to_rec]
+	
+	# Enrich recommendations with LLM-generated reasons if available
+	for rec in recs:
+		missing_skills = _missing_skills_for_role(rec.role, payload.skills)
+		rec.skill_gaps = missing_skills
+		rec.upgrade_suggestions = _upgrade_suggestions_for_gaps(missing_skills)
+		if weighted_recommendations:
+			for score, orig_rec, _ in weighted_recommendations:
+				if orig_rec.role == rec.role:
+					# Get corresponding skill/interest/education data
+					user_skills = [str(s).strip().lower() for s in payload.skills]
+					user_interests = [str(i).strip().lower() for i in payload.interests]
+					role_data = next((p for p in CAREER_PATHS if p["role"] == rec.role), None)
+					if role_data:
+						role_skills = {s.lower() for s in role_data["required_skills"]}
+						role_interests = {i.lower() for i in role_data["related_interests"]}
+						skill_matches = len(set(user_skills) & role_skills)
+						interest_matches = len(set(user_interests) & role_interests)
+						edu_fit = _education_score(payload.education_level, role_data["min_education"])
+						llm_reason = await _reason_text_with_llm(
+							payload.skills,
+							payload.interests,
+							rec.role,
+							skill_matches,
+							len(role_data["required_skills"]),
+							interest_matches,
+							edu_fit,
+							rec.confidence,
+						)
+						if llm_reason:
+							rec.reason = llm_reason
+					break
+	
+	return recs
 
 
 def generate_recommendation_explanations(
@@ -224,7 +352,11 @@ def generate_recommendation_explanations(
 	personalization_profile: dict[str, dict] | None = None,
 	top_k: int = 3,
 ) -> list[RecommendationExplanation]:
-	"""Return top-k recommendations together with explainer-specific feature contributions."""
+	"""Return recommendation explanations with XAI-formatted contribution labels.
+
+	Significance:
+		Bridges raw scoring features to user-facing explainability artifacts.
+	"""
 	request_payload = RecommendationRequest(
 		user_id="",
 		interests=payload.interests,
@@ -254,7 +386,11 @@ def generate_recommendation_explanations(
 
 
 async def save_recommendation_snapshot(user_id: str, recommendations: list[CareerRecommendation]) -> dict:
-	"""Persist a generated recommendation set so dashboard and history endpoints can replay it."""
+	"""Persist generated recommendations for history/audit replay.
+
+	Used by:
+		Recommendation create endpoints after successful generation.
+	"""
 	document = {
 		"user_id": user_id,
 		"recommendations": [item.model_dump() for item in recommendations],
@@ -313,7 +449,12 @@ async def get_recommendation_feedback(user_id: str) -> list[dict]:
 
 
 async def save_recommendation_feedback(user_id: str, payload: RecommendationFeedbackRequest) -> dict:
-	"""Store user feedback used later to personalize recommendation scoring weights."""
+	"""Store recommendation feedback and update online bandit statistics.
+
+	Significance:
+		Feedback loop for both future personalization profile computation and
+		exploration-exploitation updates in the bandit reranker.
+	"""
 	document = {
 		"user_id": user_id,
 		"role": payload.role,
@@ -331,3 +472,4 @@ async def save_recommendation_feedback(user_id: str, payload: RecommendationFeed
 	# Update bandit arm statistics for online learning.
 	bandit_record_feedback(payload.role, payload.helpful, document["rating"])
 	return document
+

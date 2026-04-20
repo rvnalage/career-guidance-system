@@ -1,4 +1,11 @@
-"""Central application settings loaded from environment variables and .env files."""
+﻿"""Central application settings loaded from environment variables and .env files."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 import json
 from functools import lru_cache
@@ -123,3 +130,4 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
+

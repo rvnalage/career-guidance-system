@@ -1,0 +1,45 @@
+Title: Digital Marketing Specialist Career Path
+Intent: interview_prep
+Role: digital marketing specialist
+Specialization: seo, performance marketing, analytics, content strategy
+Seniority: fresher
+Tags: campaign optimization, conversion funnel, attribution, roi
+
+Digital Marketing Career Path
+
+Core Skills:
+- Search engine optimization (SEO) fundamentals
+- Performance marketing across Google Ads and social platforms
+- Conversion funnel analysis and campaign measurement
+- Content strategy and audience segmentation
+- Web analytics using GA4 and UTM tracking
+
+Learning Plan:
+Phase 1:
+- Learn channel fundamentals: search, social, email, and content.
+
+Phase 2:
+- Build campaign plans with budget, targeting, and expected ROI.
+
+Phase 3:
+- Analyze campaign performance using CTR, CPC, CAC, and conversion rate.
+
+Phase 4:
+- Present optimization recommendations with clear business impact.
+
+Interview Focus:
+- SEO audit approach and prioritization
+- Performance marketing budget allocation decisions
+- Attribution model trade-offs
+- A/B testing for landing pages and ad creatives
+
+Question Bank:
+- How do you improve low conversion rate campaigns?
+- How would you measure campaign ROI with limited tracking?
+- What is your process for keyword research and intent mapping?
+- How do you decide between brand and performance budgets?
+
+Portfolio Signals:
+- Campaign optimization case study with before-after metrics
+- Funnel improvement analysis with recommendation rationale
+- Dashboard summarizing channel-wise ROI and CAC trends

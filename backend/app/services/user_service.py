@@ -1,4 +1,11 @@
-"""User CRUD and authentication helpers backed by the relational database."""
+﻿"""User CRUD and authentication helpers backed by the relational database."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 import uuid
 
@@ -101,3 +108,4 @@ async def reset_user_data(user_id: str) -> dict[str, object]:
 		"psychometric_profile_deleted": psychometric_deleted,
 		"message": "All user data has been reset successfully",
 	}
+

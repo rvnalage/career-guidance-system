@@ -1,9 +1,16 @@
-"""Planner outcome telemetry storage and recalibration helpers.
+﻿"""Planner outcome telemetry storage and recalibration helpers.
 
 Captures user-level interaction outcomes (helpfulness, next-step usage, click-through)
 and derives intent-wise calibration offsets so planner outcome scores can adapt
 to real observed success signals.
 """
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from __future__ import annotations
 
@@ -112,3 +119,4 @@ async def get_intent_recalibration(user_id: str, intents: list[str]) -> dict[str
 		offset = int(round((avg_score - 65) / 3))
 		offsets[intent_name] = max(-12, min(12, offset))
 	return offsets
+

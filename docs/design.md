@@ -214,8 +214,8 @@ users
 {
   "_id": "<ObjectId>",
   "user_id": "<uuid>",
-  "normalized_scores": { "openness": 0.82, "conscientiousness": 0.74, ... },
-  "top_traits": ["openness", "conscientiousness"],
+  "normalized_scores": { "investigative": 75.0, "social": 50.0, ... },
+  "top_traits": ["investigative", "social", "enterprising"],
   "recommended_domains": ["data science", "research"],
   "updated_at": "<ISO-8601>"
 }
@@ -256,11 +256,17 @@ Results are sorted by confidence descending; API currently returns top 3 recomme
 
 ### 4.2 Role Knowledge Base
 
-The system contains an internal role catalogue mapping each career to required skills, related domains, and minimum education tier. Roles covered: Data Scientist, Data Analyst, Data Engineer, ML Engineer, Backend Developer, DevOps Engineer, UI/UX Designer, Product Analyst, Research Scientist.
+The system contains an internal role catalogue mapping each career to required skills, related domains, and minimum education tier. Coverage now includes engineering and non-engineering role tracks (for example Data Scientist, Data Analyst, Data Engineer, ML Engineer, Backend Developer, DevOps Engineer, UI/UX Designer, Product Analyst, Research Scientist, Business Analyst, Digital Marketing Specialist, Project Manager, Finance Analyst, Supply Chain Analyst, and other trending/stable role clusters in knowledge documents).
 
 ### 4.3 Psychometric Enrichment
 
 When a user submits `POST /psychometric/score/me`, their `recommended_domains` are stored in `psychometric_profiles`. Before generating recommendations, `_enrich_interests_with_psychometric` merges these domains into the request's `interests` list. This influences `interest_match` indirectly (there is no direct psychometric numeric feature in scoring).
+
+Psychometric scoring behavior details:
+
+- Trait normalization accepts all provided input dimensions and converts them to percentage-style values.
+- `top_traits` returns top-3 summary traits for concise display.
+- Domain recommendation fallback now uses all ranked traits (round-robin across trait domain maps), avoiding top-3-only bias.
 
 ---
 
@@ -268,16 +274,18 @@ When a user submits `POST /psychometric/score/me`, their `recommended_domains` a
 
 ### 5.1 Ingestion
 
-Document ingestion reads `.txt` files from `career-guidance-system/rag/knowledge/` (consolidated knowledge base) or a caller-supplied directory path. Each file is split into overlapping chunks. Each ingested chunk currently uses:
+Document ingestion reads `.txt` files from a caller-supplied directory or default resolution order: `rag/knowledge/` then `one_note_extract/`. Each file is split into sentence-aware overlapping chunks. Each ingested chunk uses:
 - `source_type`: `document`
-- `metadata.topic`: `document`
+- `metadata.topic`: inferred (`interview`, `learning`, `networking`, `job_search`, `document`)
 - `metadata.file_name`: source filename
 - `metadata.chunk_index`: chunk position within file
+- `metadata.role`: inferred from file-name aliases when available
+- `metadata.min_education`: inferred from text signals (`bachelor`, `master`, `phd`)
 
-The default knowledge base contains 16 curated career guidance documents:
+The default knowledge base contains an expanded curated set of career guidance documents (including engineering, non-engineering, trending, and stable/non-trending role guides):
 - Career paths (Backend, ML Engineer, Data Analyst, Data Engineer, DevOps, Product Analyst, UI/UX, Research)
 - Guidance topics (Interview Prep, Portfolio, Resume Guidelines, Career Framework, Placement Strategy, Soft Skills)
-- Special content (ML Roadmap, Higher Studies vs Job decision guide)
+- Special content (ML Roadmap, Higher Studies vs Job decision guide, role matrix expansions such as trending and stable role catalogs)
 
 Quality filters:
 - chunks with normalized length < 80 are dropped
@@ -301,11 +309,13 @@ Two-phase retrieval:
 
 Optional metadata filters (`source_type`, `topic`, `min_education`) are applied when provided by API callers. The system can also infer coarse filters from query text (for example, interview/learning hints).
 
+If auto-inferred metadata filters return no hits, retrieval retries once without filters to improve recall (`fallback_without_filters`).
+
 Return top `RAG_TOP_K` (default 4) after re-ranking.
 
 ### 5.4 Query Rewriting
 
-Before retrieval, queries are rewritten using deterministic synonym replacement (for example, `ml → machine learning`, `mtech → master`, `cv → portfolio`, `job prep → interview preparation`). This improves recall for informal student queries while keeping retrieval behavior predictable.
+Before retrieval, queries are rewritten with deterministic synonym expansion and context hints (`intent`, `target_role`, `skill_gaps`). This improves recall for informal student queries while preserving deterministic behavior.
 
 ---
 

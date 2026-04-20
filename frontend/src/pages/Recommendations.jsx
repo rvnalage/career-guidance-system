@@ -216,6 +216,42 @@ function RecommendationsPage({ isAuthenticated }) {
                                                 </div>
                                                 <p className="recommendation-reason"><strong>Why this role:</strong> {item.reason}</p>
 
+                                                {item.skill_gaps?.length ? (
+                                                    <div className="xai-role-weights" style={{ marginTop: "0.6rem" }}>
+                                                        <p className="xai-title">Skill Gaps</p>
+                                                        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+                                                            {item.skill_gaps.map((gap) => (
+                                                                <span
+                                                                    key={`${item.role}-gap-${gap}`}
+                                                                    style={{
+                                                                        display: "inline-flex",
+                                                                        alignItems: "center",
+                                                                        padding: "0.2rem 0.55rem",
+                                                                        borderRadius: "999px",
+                                                                        background: "rgba(245, 158, 11, 0.14)",
+                                                                        border: "1px solid rgba(245, 158, 11, 0.35)",
+                                                                        fontSize: "0.78rem",
+                                                                        fontWeight: 500,
+                                                                    }}
+                                                                >
+                                                                    {gap}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ) : null}
+
+                                                {item.upgrade_suggestions?.length ? (
+                                                    <div className="xai-role-weights" style={{ marginTop: "0.6rem" }}>
+                                                        <p className="xai-title">Upgrade Suggestions</p>
+                                                        <ul className="msg-list" style={{ marginTop: "0.35rem" }}>
+                                                            {item.upgrade_suggestions.map((suggestion) => (
+                                                                <li key={`${item.role}-up-${suggestion}`}>{suggestion}</li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                ) : null}
+
                                                 {explanationByRole.get(item.role)?.contributions?.length ? (
                                                     <div className="xai-role-weights">
                                                         <p className="xai-title">XAI Weights ({explanationByRole.get(item.role).label})</p>

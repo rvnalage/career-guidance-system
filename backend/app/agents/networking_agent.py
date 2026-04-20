@@ -1,4 +1,11 @@
-"""Agent for networking strategy, outreach, and referral-oriented guidance."""
+﻿"""Agent for networking strategy, outreach, and referral-oriented guidance."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from typing import Any
 
@@ -28,3 +35,4 @@ class NetworkingAgent(BaseAgent):
 		if companies:
 			return f"I can draft 3 outreach messages for {companies[0]} and similar companies"
 		return "Share 3 target companies and your LinkedIn headline for personalized outreach drafts"
+

@@ -1,8 +1,15 @@
-"""Explain recommendation scores using SHAP, LIME, or a deterministic fallback.
+﻿"""Explain recommendation scores using SHAP, LIME, or a deterministic fallback.
 
 All explainers return the same feature-contribution structure so downstream API
 code does not need to care which runtime mode is currently active.
 """
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from __future__ import annotations
 
@@ -138,3 +145,4 @@ def get_explainer_runtime_status() -> dict[str, object]:
 		"lime_available": lime_available,
 		"fallback_enabled": True,
 	}
+

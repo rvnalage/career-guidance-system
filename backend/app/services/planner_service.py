@@ -1,29 +1,46 @@
-"""Lightweight orchestration layer for multi-step career guidance responses.
+﻿"""Lightweight orchestration layer for multi-step career guidance responses.
 
 This planner keeps the existing specialist agents but lets one request combine
 multiple capabilities: intent routing, supporting specialist handoffs, and the
 recommendation engine when enough profile evidence is available.
 """
 
+# Developer Onboarding Notes:
+# - Layer: orchestration service
+# - Role in system: Coordinates intent routing, profile/recommendation memory, and tool outputs into one response.
+# - Main callers: `app.api.routes.chat` multi-agent response pipeline.
+# - Reading tip: Start with `plan_agent_response`, then inspect `_maybe_run_*_tool` helpers and `_build_final_reply`.
+
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 import hashlib
 import json
+import re
 from time import perf_counter
 from typing import Any
 
 from app.schemas.recommendation import RecommendationRequest
+from app.utils.constants import SKILL_RESOURCES
 from app.services.agent_service import AGENT_REGISTRY, get_agent_response_with_confidence
 from app.services.market_service import fetch_job_market_data_async
 from app.services.outcome_service import get_intent_recalibration
-from app.services.profile_service import get_user_profile
+from app.services.profile_service import extract_networking_metrics, get_user_profile, record_networking_metrics
 from app.services.psychometric_service import get_user_psychometric_profile
 from app.services.recommendation_service import (
 	generate_career_recommendations,
 	get_recommendation_feedback,
 	get_recommendation_history,
 	get_personalization_profile,
+)
+from app.services.llm_service import (
+	generate_career_assessment_framework_via_llm,
+	generate_interview_plan_via_llm,
+	generate_interview_focus_areas_via_llm,
+	generate_learning_plan_via_llm,
+	generate_networking_strategy_via_llm,
+	generate_job_readiness_assessment_via_llm,
 )
 
 
@@ -61,6 +78,7 @@ class PlannerResult:
 	reply: str
 	next_step: str
 	confidence: float
+	skill_gaps: list[str] = field(default_factory=list)
 	plan_variant: str | None = None
 	plan_variant_reason: str | None = None
 	planner_duration_ms: int = 0
@@ -88,11 +106,16 @@ class PlannerState:
 	history_summary: str = ""
 	feedback_summary: str = ""
 	recommendation_summary: str = ""
+	career_assessment_summary: str = ""
 	skill_gap_summary: str = ""
 	interview_plan_summary: str = ""
+	interview_focus_summary: str = ""
 	learning_plan_summary: str = ""
 	networking_plan_summary: str = ""
+	job_readiness_summary: str = ""
 	job_market_summary: str = ""
+	networking_history_availability_hours: int | None = None
+	networking_history_response_rate: int | None = None
 	recommended_roles: list[str] = field(default_factory=list)
 	rejected_roles: set[str] = field(default_factory=set)
 	skill_gaps: list[str] = field(default_factory=list)
@@ -127,7 +150,14 @@ def _append_step(
 	depends_on: list[str] | None = None,
 	error_type: str | None = None,
 ) -> None:
-	"""Append a planner step with optional execution timing and dependency metadata."""
+	"""Append a planner timeline step with optional duration/dependency metadata.
+
+	Significance:
+		`steps` become both debug trace and UI-facing explainability output.
+
+	Used by:
+		All planner tool wrappers and orchestration flow in `plan_agent_response`.
+	"""
 	duration_ms = None
 	if started_at is not None:
 		duration_ms = max(0, int((perf_counter() - started_at) * 1000))
@@ -150,7 +180,12 @@ async def _run_tool_safely(
 	runner,
 	failure_detail: str,
 ) -> None:
-	"""Run an async planner tool and record structured failure metadata without aborting the plan."""
+	"""Run an async tool without failing the full plan.
+
+	Significance:
+		Preserves graceful degradation: one failing tool does not break the entire
+		assistant response, while still recording failure details for diagnostics.
+	"""
 	started_at = perf_counter()
 	try:
 		await runner(state)
@@ -173,7 +208,7 @@ def _run_sync_step_safely(
 	runner,
 	failure_detail: str,
 ) -> None:
-	"""Run a sync planner step and record structured failure metadata without aborting the plan."""
+	"""Sync equivalent of `_run_tool_safely` for deterministic local steps."""
 	started_at = perf_counter()
 	try:
 		runner(state)
@@ -225,7 +260,11 @@ def _education_level(context: dict[str, Any]) -> str | None:
 
 
 def _supports_recommendation_tool(context: dict[str, Any]) -> bool:
-	"""Require minimum structured evidence before invoking the recommendation engine."""
+	"""Gate recommendation engine on minimum profile evidence.
+
+	Significance:
+		Avoids low-signal recommendations when skills/interests/education are missing.
+	"""
 	skills = context.get("skills") if isinstance(context.get("skills"), list) else []
 	interests = context.get("interests") if isinstance(context.get("interests"), list) else []
 	return bool(skills) and bool(interests) and bool(_education_level(context))
@@ -241,7 +280,11 @@ def _target_role_from_context(context: dict[str, Any]) -> str | None:
 
 
 def _resolve_target_role(state: PlannerState) -> str | None:
-	"""Pick a target role from explicit context, recommendation tool output, or recency hints."""
+	"""Resolve best target role from explicit context, recommendations, or history hints.
+
+	Used by:
+		Interview/learning/networking/job-readiness tool builders.
+	"""
 	from_context = _target_role_from_context(state.context)
 	if from_context:
 		return from_context
@@ -249,6 +292,63 @@ def _resolve_target_role(state: PlannerState) -> str | None:
 		return state.recommended_roles[0]
 	if "data scientist" in state.history_summary.lower():
 		return "data scientist"
+	return None
+
+
+def _extract_timeline_weeks(message: str, context: dict[str, Any]) -> int | None:
+	"""Extract timeline in weeks from context first, then from lightweight message parsing."""
+	context_value = context.get("timeline_weeks")
+	if context_value is not None:
+		try:
+			weeks = int(context_value)
+			if weeks > 0:
+				return weeks
+		except (TypeError, ValueError):
+			pass
+	message_text = message.lower()
+	week_match = re.search(r"(\d+)\s*week", message_text)
+	if week_match:
+		return int(week_match.group(1))
+	day_match = re.search(r"(\d+)\s*day", message_text)
+	if day_match:
+		days = max(1, int(day_match.group(1)))
+		return max(1, (days + 6) // 7)
+	return None
+
+
+def _extract_weekly_availability_hours(message: str, context: dict[str, Any]) -> int | None:
+	"""Extract weekly availability hours from context or message patterns."""
+	context_value = context.get("weekly_availability_hours") or context.get("availability_hours")
+	if context_value is not None:
+		try:
+			hours = int(context_value)
+			if 1 <= hours <= 80:
+				return hours
+		except (TypeError, ValueError):
+			pass
+	match = re.search(r"(\d+)\s*(hours|hrs)\s*(per\s*week|weekly)?", message.lower())
+	if match:
+		hours = int(match.group(1))
+		if 1 <= hours <= 80:
+			return hours
+	return None
+
+
+def _extract_networking_response_rate_percent(message: str, context: dict[str, Any]) -> int | None:
+	"""Extract outreach response-rate percentage from context or message patterns."""
+	context_value = context.get("networking_response_rate") or context.get("response_rate")
+	if context_value is not None:
+		try:
+			rate = int(float(context_value))
+			if 0 <= rate <= 100:
+				return rate
+		except (TypeError, ValueError):
+			pass
+	match = re.search(r"(\d+)\s*%\s*(response|reply)", message.lower())
+	if match:
+		rate = int(match.group(1))
+		if 0 <= rate <= 100:
+			return rate
 	return None
 
 
@@ -343,13 +443,43 @@ def _summarize_feedback(feedback_items: list[dict]) -> tuple[str, set[str]]:
 	return " ".join(parts), rejected_roles
 
 
-def _summarize_recommendations(top_roles: list[Any]) -> str:
-	"""Convert top recommendation objects into a compact guidance block."""
+def _upgrade_suggestions_for_gaps(missing_skills: list[str]) -> list[str]:
+	"""Return 'skill â†’ resource' strings for up to 3 missing skills that have a known resource."""
+	suggestions: list[str] = []
+	for skill in missing_skills[:3]:
+		resource = SKILL_RESOURCES.get(skill.strip().lower())
+		if resource:
+			suggestions.append(f"{skill.title()}: {resource}")
+	return suggestions
+
+
+def _skill_gaps_for_recommended_roles(
+	recommended_roles: list[str], current_skills: list[str]
+) -> dict[str, list[str]]:
+	"""Return missing skills per recommended role (up to 3 gaps each)."""
+	result: dict[str, list[str]] = {}
+	for role in recommended_roles:
+		_, missing = _skill_gap_for_role(role, current_skills)
+		if missing:
+			result[role] = missing[:3]
+	return result
+
+
+def _summarize_recommendations(top_roles: list[Any], current_skills: list[str] | None = None) -> str:
+	"""Convert top recommendation objects into a compact guidance block with upgrade suggestions."""
 	if not top_roles:
 		return ""
 	lines = ["Tool result: top recommended roles from your current profile signals:"]
 	for item in top_roles[:3]:
 		lines.append(f"- {item.role} ({item.confidence * 100:.0f}%): {item.reason}")
+		if current_skills is not None:
+			_, missing = _skill_gap_for_role(item.role, current_skills)
+			suggestions = _upgrade_suggestions_for_gaps(missing)
+			if suggestions:
+				lines.append(f"  Skill gaps for {item.role}: {', '.join(missing[:3])}")
+				lines.append("  Upgrade resources:")
+				for s in suggestions:
+					lines.append(f"    â€¢ {s}")
 	return "\n".join(lines)
 
 
@@ -365,7 +495,7 @@ async def _maybe_run_recommendation_tool(state: PlannerState) -> None:
 		skills=[str(item) for item in state.context.get("skills", [])],
 		education_level=_education_level(state.context) or "bachelor",
 	)
-	recommendations = generate_career_recommendations(
+	recommendations = await generate_career_recommendations(
 		payload,
 		top_k=3,
 		personalization_profile=personalization_profile,
@@ -373,8 +503,9 @@ async def _maybe_run_recommendation_tool(state: PlannerState) -> None:
 	if state.rejected_roles:
 		recommendations = [item for item in recommendations if item.role.strip().lower() not in state.rejected_roles]
 	if recommendations:
+		current_skills = [str(item) for item in state.context.get("skills", [])]
 		state.recommended_roles = [item.role for item in recommendations]
-		state.recommendation_summary = _summarize_recommendations(recommendations)
+		state.recommendation_summary = _summarize_recommendations(recommendations, current_skills)
 		_append_step(
 			state,
 			"recommendation_tool",
@@ -414,6 +545,10 @@ async def _maybe_load_profile_memory_tool(state: PlannerState) -> None:
 	profile_started = perf_counter()
 	profile = await get_user_profile(state.user_id)
 	state.profile_memory_summary = _summarize_profile_memory(profile)
+	(
+		state.networking_history_availability_hours,
+		state.networking_history_response_rate,
+	) = extract_networking_metrics(profile)
 	if state.profile_memory_summary:
 		_append_step(
 			state,
@@ -481,9 +616,13 @@ async def _maybe_run_job_market_tool(state: PlannerState) -> None:
 
 
 async def _maybe_run_skill_gap_tool(state: PlannerState) -> None:
-	"""Build a role-specific skill gap snapshot for learning/interview/job flows."""
+	"""Build role-specific skill-gap summary used by downstream planners.
+
+	Significance:
+		Acts as shared prerequisite context for interview, learning, and readiness tools.
+	"""
 	intents = {state.intent, *state.auxiliary_intents}
-	if intents.isdisjoint({"learning_path", "interview_prep", "job_matching", "career_assessment"}):
+	if intents.isdisjoint({"learning_path", "interview_prep", "job_matching", "career_assessment", "recommendation"}):
 		return
 	role = _resolve_target_role(state)
 	matched, missing = _skill_gap_for_role(role, [str(item) for item in state.context.get("skills", [])])
@@ -503,13 +642,103 @@ async def _maybe_run_skill_gap_tool(state: PlannerState) -> None:
 	)
 
 
+async def _maybe_run_career_assessment_tool(state: PlannerState) -> None:
+	"""Personalize a career-assessment framework for broad direction requests."""
+	intents = {state.intent, *state.auxiliary_intents}
+	if "career_assessment" not in intents:
+		return
+	context_roles = [str(item).strip() for item in state.context.get("target_roles", []) if str(item).strip()]
+	resolved_role = _resolve_target_role(state)
+	target_roles = context_roles[:3]
+	if resolved_role and resolved_role not in target_roles:
+		target_roles = [resolved_role, *target_roles][:3]
+	user_skills = [str(item).strip() for item in state.context.get("skills", []) if str(item).strip()]
+	user_interests = [str(item).strip() for item in state.context.get("interests", []) if str(item).strip()]
+	timeline_weeks = _extract_timeline_weeks(state.message, state.context) or 8
+
+	llm_framework = await generate_career_assessment_framework_via_llm(
+		target_roles=target_roles,
+		user_skills=user_skills,
+		user_interests=user_interests,
+		timeline_weeks=timeline_weeks,
+	)
+	if llm_framework:
+		state.career_assessment_summary = (
+			f"Career assessment framework (AI-generated, {timeline_weeks}-week plan):\n{llm_framework}"
+		)
+		_append_step(
+			state,
+			"career_assessment_tool",
+			"Built a personalized career-assessment framework using role, skills, and interest signals.",
+			depends_on=["profile_tool"],
+		)
+		return
+
+	roles_text = ", ".join(target_roles) if target_roles else "2-3 realistic target roles"
+	skills_text = ", ".join(user_skills[:5]) if user_skills else "your current baseline"
+	interests_text = ", ".join(user_interests[:4]) if user_interests else "your priority domains"
+	state.career_assessment_summary = (
+		f"Career assessment framework ({timeline_weeks}-week plan):\n"
+		f"- Candidate roles: {roles_text}.\n"
+		f"- Leverage strengths: {skills_text}.\n"
+		f"- Interest anchors: {interests_text}.\n"
+		"- Weekly loop: role-fit scoring, one validation task, and checkpoint notes.\n"
+		"- Decision gate: choose one primary track + one fallback based on evidence quality."
+	)
+	_append_step(
+		state,
+		"career_assessment_tool",
+		"Generated a fallback personalized assessment framework from context signals.",
+		depends_on=["profile_tool"],
+	)
+
+
 async def _maybe_run_interview_tool(state: PlannerState) -> None:
 	"""Generate a focused interview prep sprint when interview intent is present."""
 	intents = {state.intent, *state.auxiliary_intents}
 	if "interview_prep" not in intents:
 		return
 	role = _resolve_target_role(state) or "your target role"
+	target_companies = [str(item).strip() for item in state.context.get("target_companies", []) if str(item).strip()]
+	company_name = target_companies[0] if target_companies else None
+	timeline_weeks = _extract_timeline_weeks(state.message, state.context) or 1
+	timeline_days = max(2, min(14, timeline_weeks * 7))
 	focus = state.skill_gaps[:3] if state.skill_gaps else ["problem solving", "communication", "project storytelling"]
+	
+	# Try LLM-generated plan first
+	llm_plan = await generate_interview_plan_via_llm(
+		target_role=role,
+		timeline_days=timeline_days,
+		skill_gaps=state.skill_gaps,
+		company_name=company_name,
+	)
+	llm_focus = await generate_interview_focus_areas_via_llm(
+		target_role=role,
+		skill_gaps=state.skill_gaps,
+		timeline_days=timeline_days,
+		company_name=company_name,
+	)
+	if llm_focus:
+		state.interview_focus_summary = f"Interview focus areas (AI-generated):\n{llm_focus}"
+	else:
+		state.interview_focus_summary = (
+			"Interview focus areas: "
+			f"1) {focus[0]} with timed drills, "
+			f"2) {focus[1] if len(focus) > 1 else focus[0]} with mock Q&A, "
+			f"3) {focus[2] if len(focus) > 2 else focus[0]} with concise storytelling evidence."
+		)
+	
+	if llm_plan:
+		state.interview_plan_summary = f"Interview sprint plan (AI-generated) for {role}:\n{llm_plan}"
+		_append_step(
+			state,
+			"interview_tool",
+			f"Generated a personalized {timeline_days}-day interview sprint using AI based on {role} requirements and your skill gaps.",
+			depends_on=["skill_gap_tool"],
+		)
+		return
+	
+	# Fallback to templated variants if LLM unavailable
 	variant_a = (
 		f"Interview sprint plan (Variant A, execution-first) for {role}: "
 		f"Day 1 solve one timed problem and one role-specific case ({focus[0]}), "
@@ -539,6 +768,26 @@ async def _maybe_run_learning_path_tool(state: PlannerState) -> None:
 	if intents.isdisjoint({"learning_path", "career_assessment", "recommendation"}):
 		return
 	role = _resolve_target_role(state) or "your role focus"
+	
+	# Try LLM-generated plan first
+	llm_plan = await generate_learning_plan_via_llm(
+		target_role=role,
+		timeline_weeks=4,
+		skill_gaps=state.skill_gaps,
+		learning_style=None,  # Could extract from psychometric profile
+	)
+	
+	if llm_plan:
+		state.learning_plan_summary = f"Learning path (AI-generated) for {role}:\n{llm_plan}"
+		_append_step(
+			state,
+			"learning_tool",
+			f"Generated a personalized learning path using AI based on {role} requirements and your skill gaps.",
+			depends_on=["skill_gap_tool"],
+		)
+		return
+	
+	# Fallback to templated variants if LLM unavailable
 	domain_hint = ""
 	if state.psychometric_summary:
 		domain_hint = " Align electives with psychometric-fit domains from your profile."
@@ -574,16 +823,117 @@ async def _maybe_run_networking_tool(state: PlannerState) -> None:
 		return
 	role = _resolve_target_role(state) or "your target role"
 	target_companies = [str(item).strip() for item in state.context.get("target_companies", []) if str(item).strip()]
+	explicit_weekly_hours = _extract_weekly_availability_hours(state.message, state.context)
+	explicit_response_rate = _extract_networking_response_rate_percent(state.message, state.context)
+	weekly_hours = explicit_weekly_hours
+	if weekly_hours is None:
+		weekly_hours = state.networking_history_availability_hours
+	response_rate = explicit_response_rate
+	if response_rate is None:
+		response_rate = state.networking_history_response_rate
+	if state.user_id and (explicit_weekly_hours is not None or explicit_response_rate is not None):
+		await record_networking_metrics(
+			state.user_id,
+			weekly_availability_hours=explicit_weekly_hours,
+			response_rate_percent=explicit_response_rate,
+		)
+	
+	# Try LLM-generated strategy first
+	llm_strategy = await generate_networking_strategy_via_llm(
+		target_role=role,
+		target_companies=target_companies,
+		weekly_availability_hours=weekly_hours,
+		response_rate_percent=response_rate,
+		seniority_level=None,  # Could extract from profile
+	)
+	
+	if llm_strategy:
+		state.networking_plan_summary = f"Networking strategy (AI-generated) for {role}:\n{llm_strategy}"
+		_append_step(
+			state,
+			"networking_tool",
+			f"Generated a personalized networking strategy using AI for {role} opportunities.",
+			depends_on=["profile_tool"],
+		)
+		return
+	
+	# Fallback to templated strategy if LLM unavailable
 	company_text = ", ".join(target_companies[:3]) if target_companies else "your top 3 target companies"
+	if weekly_hours is None:
+		weekly_hours = 5
+	if response_rate is None:
+		response_rate = 20
+	if weekly_hours <= 4:
+		outreach_per_week = 4
+		follow_up_days = 8 if response_rate < 15 else 10
+	elif weekly_hours <= 8:
+		outreach_per_week = 7
+		follow_up_days = 7 if response_rate < 15 else 9
+	else:
+		outreach_per_week = 10
+		follow_up_days = 6 if response_rate < 15 else 8
 	state.networking_plan_summary = (
 		f"Networking plan for {role}: shortlist alumni/role peers at {company_text}, "
-		"send 5 personalized outreach messages per week, and request one informational call every 10 days."
+		f"send {outreach_per_week} personalized outreach messages per week "
+		f"(based on ~{weekly_hours} available hours), and use a {follow_up_days}-day follow-up cadence "
+		f"(calibrated to ~{response_rate}% current response rate)."
 	)
 	_append_step(
 		state,
 		"networking_tool",
-		"Prepared targeted outreach steps based on role and company preferences.",
+		"Prepared targeted outreach steps with dynamic cadence based on time and response-rate signals.",
 		depends_on=["profile_tool"],
+	)
+
+
+async def _maybe_run_job_readiness_tool(state: PlannerState) -> None:
+	"""Generate a sophisticated job readiness assessment when job_matching intent is present."""
+	intents = {state.intent, *state.auxiliary_intents}
+	if "job_matching" not in intents:
+		return
+	role = _resolve_target_role(state) or "your target role"
+	user_skills = [str(item) for item in state.context.get("skills", [])]
+	experience_months = state.context.get("experience_months")  # e.g., from psychometric or profile
+	
+	# Try LLM-generated assessment first
+	llm_assessment = await generate_job_readiness_assessment_via_llm(
+		target_role=role,
+		user_skills=user_skills,
+		skill_gaps=state.skill_gaps,
+		experience_months=experience_months,
+	)
+	
+	if llm_assessment:
+		state.job_readiness_summary = f"Job readiness assessment (AI-generated) for {role}:\n{llm_assessment}"
+		_append_step(
+			state,
+			"job_readiness_tool",
+			f"Generated a detailed job readiness assessment using AI based on your profile and {role} requirements.",
+			depends_on=["skill_gap_tool"],
+		)
+		return
+	
+	# Fallback to simple heuristic if LLM unavailable
+	if len(user_skills) >= 4:
+		readiness = "medium-high"
+	elif len(user_skills) >= 2:
+		readiness = "medium"
+	else:
+		readiness = "early"
+	
+	skills_text = ", ".join(user_skills[:6]) if user_skills else "not enough profile signals yet"
+	state.job_readiness_summary = (
+		f"Job readiness for {role}:\n"
+		f"- Current readiness: {readiness}.\n"
+		f"- Detected strengths: {skills_text}.\n"
+		"- Gap analysis: identify missing must-have skills and interview depth for shortlisted roles.\n"
+		"- Application strategy: apply in 3 buckets (stretch, realistic, safe) and track response rates weekly."
+	)
+	_append_step(
+		state,
+		"job_readiness_tool",
+		f"Generated a job readiness assessment (fallback) based on skill count and role fit.",
+		depends_on=["skill_gap_tool"],
 	)
 
 
@@ -662,14 +1012,20 @@ def _build_final_reply(state: PlannerState) -> str:
 		sections.append(state.history_summary)
 	if state.recommendation_summary:
 		sections.append(state.recommendation_summary)
+	if state.career_assessment_summary:
+		sections.append(state.career_assessment_summary)
 	if state.skill_gap_summary:
 		sections.append(state.skill_gap_summary)
 	if state.interview_plan_summary:
 		sections.append(state.interview_plan_summary)
+	if state.interview_focus_summary:
+		sections.append(state.interview_focus_summary)
 	if state.learning_plan_summary:
 		sections.append(state.learning_plan_summary)
 	if state.networking_plan_summary:
 		sections.append(state.networking_plan_summary)
+	if state.job_readiness_summary:
+		sections.append(state.job_readiness_summary)
 	if state.job_market_summary:
 		sections.append(state.job_market_summary)
 	sections.extend(state.supporting_notes[:2])
@@ -695,6 +1051,7 @@ def _compute_outcome_scores(state: PlannerState) -> dict[str, int]:
 		if intent_name == "interview_prep":
 			score = 48
 			score += 20 if state.interview_plan_summary else 0
+			score += 10 if state.interview_focus_summary else 0
 			score += 14 if state.skill_gap_summary else 0
 			score += 10 if state.profile_memory_summary else 0
 			score += 8 if state.psychometric_summary else 0
@@ -712,6 +1069,7 @@ def _compute_outcome_scores(state: PlannerState) -> dict[str, int]:
 			score = 46
 			score += 20 if state.recommendation_summary else 0
 			score += 14 if state.job_market_summary else 0
+			score += 10 if state.job_readiness_summary else 0
 			score += 10 if state.feedback_summary else 0
 			score += 8 if state.history_summary else 0
 			scores[intent_name] = min(100, score)
@@ -726,6 +1084,7 @@ def _compute_outcome_scores(state: PlannerState) -> dict[str, int]:
 			continue
 		# career_assessment and fallback intents
 		score = 44
+		score += 18 if state.career_assessment_summary else 0
 		score += 16 if state.profile_memory_summary else 0
 		score += 14 if state.psychometric_summary else 0
 		score += 14 if state.skill_gap_summary else 0
@@ -763,7 +1122,23 @@ async def plan_agent_response(
 	*,
 	user_id: str | None = None,
 ) -> PlannerResult:
-	"""Execute a small multi-step orchestration over existing agents and tools."""
+	"""Main planner entrypoint for multi-tool guidance generation.
+
+	Args:
+		message: Latest user utterance.
+		context: Structured request/profile context merged by route layer.
+		user_id: Optional user identifier for memory-backed personalization.
+
+	Returns:
+		`PlannerResult` containing final reply, explainability steps, and metrics.
+
+	Significance:
+		Core orchestrator for phase-2 multi-intent behavior. Controls tool ordering,
+		fallback behavior, and evidence fusion into one response.
+
+	Used by:
+		`app.api.routes.chat` planner-enabled response path.
+	"""
 	state = PlannerState(message=message, context=dict(context or {}), user_id=user_id)
 	state.planner_started_at = perf_counter()
 	state.plan_id = _build_plan_id(state)
@@ -809,6 +1184,13 @@ async def plan_agent_response(
 		runner=_maybe_load_profile_memory_tool,
 		failure_detail="Failed to load profile or psychometric memory",
 	)
+	await _run_tool_safely(
+		state,
+		step_name="career_assessment_tool",
+		depends_on=["profile_tool"],
+		runner=_maybe_run_career_assessment_tool,
+		failure_detail="Career assessment framework builder failed",
+	)
 	_run_sync_step_safely(
 		state,
 		step_name="support_router",
@@ -853,6 +1235,13 @@ async def plan_agent_response(
 	)
 	await _run_tool_safely(
 		state,
+		step_name="job_readiness_tool",
+		depends_on=["skill_gap_tool"],
+		runner=_maybe_run_job_readiness_tool,
+		failure_detail="Job readiness assessment failed",
+	)
+	await _run_tool_safely(
+		state,
 		step_name="jobs_tool",
 		depends_on=[f"primary_{state.intent}"],
 		runner=_maybe_run_job_market_tool,
@@ -872,6 +1261,7 @@ async def plan_agent_response(
 		reply=_build_final_reply(state),
 		next_step=state.primary_next_step,
 		confidence=state.confidence,
+		skill_gaps=state.skill_gaps,
 		plan_variant=state.plan_variant,
 		plan_variant_reason=state.plan_variant_reason,
 		planner_duration_ms=max(0, int((perf_counter() - state.planner_started_at) * 1000)),

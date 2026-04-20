@@ -1,4 +1,11 @@
-"""Agent for phased learning-roadmap and upskilling guidance."""
+﻿"""Agent for phased learning-roadmap and upskilling guidance."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from typing import Any
 
@@ -27,3 +34,4 @@ class LearningPathAgent(BaseAgent):
 		"""Request baseline skill level so the roadmap can be adapted to the user's depth."""
 		timeline_weeks = self._extract_timeline_weeks(message, context) or 8
 		return f"Share your current skill level (beginner/intermediate/advanced) to get a week-by-week {timeline_weeks}-week plan"
+

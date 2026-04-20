@@ -1,3 +1,9 @@
+﻿# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 from __future__ import annotations
 
 from typing import Callable
@@ -40,3 +46,4 @@ def prediction_fn(coefficients: list[float]) -> Callable[[list[list[float]]], li
 
 def feature_vector_from_map(feature_map: dict[str, float]) -> list[float]:
 	return [float(feature_map.get(name, 0.0)) for name in FEATURE_ORDER]
+

@@ -1,0 +1,45 @@
+Title: Supply Chain Analyst Career Path
+Intent: interview_prep
+Role: supply chain analyst
+Specialization: demand planning, inventory optimization, logistics analytics
+Seniority: fresher
+Tags: forecast accuracy, service level, lead time, procurement analytics
+
+Supply Chain Analyst Career Path
+
+Core Skills:
+- Demand forecasting and planning fundamentals
+- Inventory optimization and safety stock reasoning
+- Logistics and distribution performance analysis
+- Supplier performance tracking and procurement analytics
+- KPI dashboards for service level, lead time, and fill rate
+
+Learning Plan:
+Phase 1:
+- Understand end-to-end supply chain flows and planning cycles.
+
+Phase 2:
+- Analyze demand variability and forecast error patterns.
+
+Phase 3:
+- Build inventory and replenishment scenarios with trade-off analysis.
+
+Phase 4:
+- Present operational recommendations with cost and service-level impact.
+
+Interview Focus:
+- Handling stock-outs and overstock risk
+- Forecast accuracy improvement techniques
+- Lead-time reduction strategy and supplier collaboration
+- KPI-driven decision-making under constraints
+
+Question Bank:
+- How do you improve forecast accuracy for seasonal products?
+- How would you balance service level and inventory carrying cost?
+- What metrics do you use to evaluate supplier performance?
+- How do you diagnose recurring logistics delays?
+
+Portfolio Signals:
+- Inventory optimization case with scenario comparisons
+- Forecast error analysis dashboard
+- Supply chain KPI scorecard with recommendations

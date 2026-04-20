@@ -1,0 +1,44 @@
+Title: Finance Analyst Career Path
+Intent: learning_path
+Role: finance analyst
+Specialization: financial modeling, budgeting, variance analysis, reporting
+Seniority: fresher
+Tags: excel modeling, forecasting, pnl, business finance
+
+Finance Analyst Path for Early Career Professionals
+
+Core Skills:
+- Financial statement analysis and ratio interpretation
+- Budgeting, forecasting, and variance analysis
+- Excel modeling and scenario planning
+- Business performance reporting and KPI interpretation
+- Communication of financial insights to non-finance teams
+
+Learning Plan:
+Step 1:
+- Build fundamentals in income statement, balance sheet, and cash flow analysis.
+
+Step 2:
+- Practice budgeting templates and monthly forecast updates.
+
+Step 3:
+- Run variance analysis and identify drivers behind target misses.
+
+Step 4:
+- Present concise recommendations tied to revenue, cost, and margin outcomes.
+
+Portfolio Projects:
+- Department budget forecasting case
+- Revenue and cost variance diagnostic dashboard
+- Financial decision memo with scenario comparison
+
+Interview Focus:
+- Forecast assumptions and sensitivity analysis
+- Budget versus actual reconciliation
+- Profitability analysis and business recommendation quality
+- Stakeholder communication under uncertain data
+
+Networking Strategy:
+- Connect with finance analysts and FP&A professionals on LinkedIn.
+- Share one-page financial case summaries for referral conversations.
+- Request informational calls focused on analyst workflows and tooling.

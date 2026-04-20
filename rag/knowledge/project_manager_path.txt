@@ -1,0 +1,41 @@
+Title: Project Manager Career Path
+Intent: recommendation
+Role: project manager
+Specialization: planning, execution, risk management, communication
+Seniority: fresher
+Tags: sprint planning, risk register, stakeholder alignment, delivery metrics
+
+Project Manager Path for Early Career Professionals
+
+Core Skills:
+- Scope definition and work breakdown structures
+- Sprint planning and milestone tracking
+- Risk identification, mitigation planning, and escalation
+- Cross-functional communication and stakeholder alignment
+- Delivery metrics and post-project retrospectives
+
+Learning Plan:
+Month 1:
+- Learn project lifecycle, delivery models, and communication plans.
+
+Month 2:
+- Practice sprint planning, backlog grooming, and status reporting.
+
+Month 3:
+- Run a simulated project with risk register and timeline management.
+
+Portfolio Projects:
+- Academic project delivery plan with dependency mapping
+- Risk mitigation plan for multi-team software rollout
+- Stakeholder communication template with milestone dashboards
+
+Interview Focus:
+- Handling scope creep and timeline pressure
+- Prioritization under resource constraints
+- Risk management trade-offs
+- Team conflict resolution and decision-making
+
+Readiness Signals:
+- Consistent milestone tracking with measurable outcomes
+- Clear communication artifacts and meeting summaries
+- Evidence of delivery improvements after retrospectives

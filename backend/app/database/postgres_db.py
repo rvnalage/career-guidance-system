@@ -1,4 +1,11 @@
-"""SQLAlchemy engine, session, and initialization helpers for relational storage."""
+﻿"""SQLAlchemy engine, session, and initialization helpers for relational storage."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from collections.abc import Generator
 
@@ -32,3 +39,4 @@ def init_db() -> None:
 	from app.database import models  # noqa: F401
 
 	Base.metadata.create_all(bind=engine)
+

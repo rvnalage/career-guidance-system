@@ -1,4 +1,11 @@
-"""Dashboard API routes for summary and report views over user activity."""
+﻿"""Dashboard API routes for summary and report views over user activity."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from datetime import datetime, timezone
 from typing import Annotated
@@ -54,3 +61,4 @@ async def get_dashboard_report(
 		"recommendation_history": recommendation_history,
 		"latest_recommendations": recommendation_history[0].get("recommendations", []) if recommendation_history else [],
 	}
+

@@ -1,8 +1,15 @@
-"""Keyword-based intent detection for routing chat messages to specialized agents.
+﻿"""Keyword-based intent detection for routing chat messages to specialized agents.
 
 The recognizer deliberately uses deterministic scoring so behavior is predictable,
 easy to test, and simple to tune without retraining a separate classifier.
 """
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 INTENT_KEYWORDS = {
 	# Order matters here: more specific intents should appear before broader keyword buckets such as job matching.
@@ -48,3 +55,4 @@ def detect_intent(message: str) -> str:
 	"""Return only the winning intent name for callers that do not need score details."""
 	intent, _, _ = detect_intent_with_confidence(message)
 	return intent
+

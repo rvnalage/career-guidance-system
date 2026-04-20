@@ -1,8 +1,15 @@
-"""Shared agent contract and lightweight extraction helpers for chat routing.
+﻿"""Shared agent contract and lightweight extraction helpers for chat routing.
 
 Concrete agents inherit these utility methods so role, skill, and timeline parsing
 behavior stays consistent across different intent-specific response generators.
 """
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from __future__ import annotations
 
@@ -109,3 +116,4 @@ class BaseAgent(ABC):
 			if text:
 				result.append(text)
 		return result
+

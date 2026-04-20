@@ -1,0 +1,366 @@
+{
+    "version": "1.0",
+    "defaults": {
+        "top_k": 4,
+        "quality_gates": {
+            "term_coverage_min": 0.6,
+            "source_recall_at_k_min": 0.7
+        }
+    },
+    "cases": [
+        {
+            "id": "interview_data_scientist_core",
+            "enabled": true,
+            "query": "how i can prepare for data science interview",
+            "intent": "interview_prep",
+            "target_role": "data scientist",
+            "expected_terms": [
+                "statistics",
+                "sql",
+                "machine learning",
+                "case study"
+            ],
+            "expected_source_contains": [
+                "interview_preparation"
+            ],
+            "notes": "Use this until a dedicated data-science interview document is added."
+        },
+        {
+            "id": "interview_ml_engineer",
+            "enabled": true,
+            "query": "how to prepare for ml engineer interview",
+            "intent": "interview_prep",
+            "target_role": "ml engineer",
+            "expected_terms": [
+                "model evaluation",
+                "feature engineering",
+                "system design"
+            ],
+            "expected_source_contains": [
+                "ml_engineer"
+            ],
+            "notes": "Checks ML role specificity for interview answers."
+        },
+        {
+            "id": "learning_data_analyst_roadmap",
+            "enabled": true,
+            "query": "learning roadmap for data analyst role",
+            "intent": "learning_path",
+            "target_role": "data analyst",
+            "expected_terms": [
+                "sql",
+                "dashboard",
+                "statistics",
+                "analysis"
+            ],
+            "expected_source_contains": [
+                "data_analyst"
+            ],
+            "notes": "Learning intent should prefer role-path content over interview-only chunks."
+        },
+        {
+            "id": "learning_data_engineer_roadmap",
+            "enabled": true,
+            "query": "study plan for data engineer fresher",
+            "intent": "learning_path",
+            "target_role": "data engineer",
+            "expected_terms": [
+                "etl",
+                "pipeline",
+                "data warehouse",
+                "python"
+            ],
+            "expected_source_contains": [
+                "data_engineer"
+            ],
+            "notes": "Verifies data-engineering specific roadmap retrieval."
+        },
+        {
+            "id": "job_matching_backend",
+            "enabled": true,
+            "query": "is backend developer a good fit for me",
+            "intent": "job_matching",
+            "target_role": "backend developer",
+            "expected_terms": [
+                "api",
+                "database",
+                "system design"
+            ],
+            "expected_source_contains": [
+                "backend_developer"
+            ],
+            "notes": "Ensures backend role-fit answers are grounded in backend corpus."
+        },
+        {
+            "id": "job_matching_devops",
+            "enabled": true,
+            "query": "devops engineer role readiness for mtech student",
+            "intent": "job_matching",
+            "target_role": "devops engineer",
+            "expected_terms": [
+                "cloud",
+                "ci cd",
+                "monitoring",
+                "infrastructure"
+            ],
+            "expected_source_contains": [
+                "devops_engineer"
+            ],
+            "notes": "Checks role-specific signals for DevOps role matching."
+        },
+        {
+            "id": "networking_product_analyst",
+            "enabled": true,
+            "query": "networking strategy for product analyst jobs",
+            "intent": "networking",
+            "target_role": "product analyst",
+            "expected_terms": [
+                "linkedin",
+                "alumni",
+                "referral",
+                "outreach"
+            ],
+            "expected_source_contains": [
+                "product_analyst"
+            ],
+            "notes": "Validates networking intent maps to networking/placement guidance."
+        },
+        {
+            "id": "recommendation_research_track",
+            "enabled": true,
+            "query": "should i choose research track in ai",
+            "intent": "recommendation",
+            "target_role": "research scientist",
+            "expected_terms": [
+                "research",
+                "publication",
+                "higher studies"
+            ],
+            "expected_source_contains": [
+                "research_track",
+                "higher_studies_vs_job"
+            ],
+            "notes": "Checks recommendation intent for research-oriented trajectory."
+        },
+        {
+            "id": "interview_qa_automation_gap",
+            "enabled": true,
+            "query": "how to prepare for automation testing interview",
+            "intent": "interview_prep",
+            "target_role": "qa automation engineer",
+            "expected_terms": [
+                "test pyramid",
+                "api testing",
+                "flaky tests",
+                "ci"
+            ],
+            "expected_source_contains": [
+                "automation_testing_interview"
+            ],
+            "notes": "Enabled after adding dedicated QA automation interview corpus."
+        },
+        {
+            "id": "interview_data_scientist_advanced_gap",
+            "enabled": true,
+            "query": "advanced data scientist interview prep for experimentation",
+            "intent": "interview_prep",
+            "target_role": "data scientist",
+            "expected_terms": [
+                "ab testing",
+                "causal inference",
+                "offline metrics"
+            ],
+            "expected_source_contains": [
+                "data_science_interview_advanced"
+            ],
+            "notes": "Enabled after adding advanced data-science interview corpus."
+        },
+        {
+            "id": "learning_business_analyst_path",
+            "enabled": true,
+            "query": "learning plan for business analyst fresher",
+            "intent": "learning_path",
+            "target_role": "business analyst",
+            "expected_terms": [
+                "requirement gathering",
+                "process mapping",
+                "user stories",
+                "stakeholder"
+            ],
+            "expected_source_contains": [
+                "business_analyst"
+            ],
+            "notes": "Ensures non-engineering business analyst learning coverage remains retrievable."
+        },
+        {
+            "id": "interview_digital_marketing",
+            "enabled": true,
+            "query": "how to prepare for digital marketing interview",
+            "intent": "interview_prep",
+            "target_role": "digital marketing specialist",
+            "expected_terms": [
+                "seo",
+                "performance marketing",
+                "conversion",
+                "roi"
+            ],
+            "expected_source_contains": [
+                "digital_marketing"
+            ],
+            "notes": "Validates interview guidance for digital marketing non-engineering role."
+        },
+        {
+            "id": "recommendation_project_manager",
+            "enabled": true,
+            "query": "should i choose project manager career path",
+            "intent": "recommendation",
+            "target_role": "project manager",
+            "expected_terms": [
+                "risk management",
+                "stakeholder",
+                "planning",
+                "delivery"
+            ],
+            "expected_source_contains": [
+                "project_manager"
+            ],
+            "notes": "Adds recommendation coverage for project management track."
+        },
+        {
+            "id": "learning_ai_product_manager",
+            "enabled": true,
+            "query": "learning path for ai product manager role",
+            "intent": "learning_path",
+            "target_role": "ai product manager",
+            "expected_terms": [
+                "stakeholder",
+                "experimentation",
+                "product strategy",
+                "responsible ai"
+            ],
+            "expected_source_contains": [
+                "trending_roles_2026"
+            ],
+            "notes": "Ensures trending AI product role guidance is retrievable."
+        },
+        {
+            "id": "interview_cybersecurity_analyst",
+            "enabled": true,
+            "query": "how to prepare for cybersecurity analyst interview",
+            "intent": "interview_prep",
+            "target_role": "cybersecurity analyst",
+            "expected_terms": [
+                "threat",
+                "incident response",
+                "vulnerability",
+                "siem"
+            ],
+            "expected_source_contains": [
+                "trending_roles_2026"
+            ],
+            "notes": "Adds interview coverage for trending cybersecurity role."
+        },
+        {
+            "id": "recommendation_ux_researcher",
+            "enabled": true,
+            "query": "should i choose ux researcher role",
+            "intent": "recommendation",
+            "target_role": "ux researcher",
+            "expected_terms": [
+                "user interviews",
+                "user research",
+                "usability",
+                "collaboration"
+            ],
+            "expected_source_contains": [
+                "ux"
+            ],
+            "notes": "Adds recommendation coverage for UX research career path."
+        },
+        {
+            "id": "learning_database_administrator",
+            "enabled": true,
+            "query": "learning path for database administrator fresher",
+            "intent": "learning_path",
+            "target_role": "database administrator",
+            "expected_terms": [
+                "sql",
+                "backup",
+                "replication",
+                "performance"
+            ],
+            "expected_source_contains": [
+                "stable_non_trending_roles"
+            ],
+            "notes": "Ensures stable DBA role guidance remains covered."
+        },
+        {
+            "id": "interview_technical_support_specialist",
+            "enabled": true,
+            "query": "how to prepare for technical support specialist interview",
+            "intent": "interview_prep",
+            "target_role": "technical support specialist",
+            "expected_terms": [
+                "troubleshooting",
+                "ticket",
+                "sla",
+                "customer communication"
+            ],
+            "expected_source_contains": [
+                "stable_non_trending_roles"
+            ],
+            "notes": "Adds interview readiness coverage for stable support role."
+        },
+        {
+            "id": "recommendation_operations_coordinator",
+            "enabled": true,
+            "query": "should i choose operations coordinator career",
+            "intent": "recommendation",
+            "target_role": "operations coordinator",
+            "expected_terms": [
+                "process",
+                "kpi",
+                "vendor",
+                "coordination"
+            ],
+            "expected_source_contains": [
+                "stable_non_trending_roles"
+            ],
+            "notes": "Adds recommendation coverage for non-trending operations role."
+        },
+        {
+            "id": "learning_finance_analyst",
+            "enabled": true,
+            "query": "learning path for finance analyst fresher",
+            "intent": "learning_path",
+            "target_role": "finance analyst",
+            "expected_terms": [
+                "budgeting",
+                "forecast",
+                "variance",
+                "financial"
+            ],
+            "expected_source_contains": [
+                "finance_analyst"
+            ],
+            "notes": "Adds non-engineering finance role coverage."
+        },
+        {
+            "id": "interview_supply_chain_analyst",
+            "enabled": true,
+            "query": "how to prepare for supply chain analyst interview",
+            "intent": "interview_prep",
+            "target_role": "supply chain analyst",
+            "expected_terms": [
+                "forecast",
+                "inventory",
+                "service level",
+                "lead time"
+            ],
+            "expected_source_contains": [
+                "supply_chain_analyst"
+            ],
+            "notes": "Adds non-engineering supply chain interview coverage."
+        }
+    ]
+}

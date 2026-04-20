@@ -1,0 +1,44 @@
+Title: Business Analyst Career Path
+Intent: learning_path
+Role: business analyst
+Specialization: requirements, stakeholder management, process mapping
+Seniority: fresher
+Tags: requirement gathering, user stories, BPMN, communication
+
+Business Analyst Path for MTech Students
+
+Core Skills:
+- Requirement gathering and clarification
+- Business process mapping and gap analysis
+- User stories and acceptance criteria writing
+- SQL fundamentals for reporting and validation
+- Stakeholder communication and meeting facilitation
+
+Learning Plan:
+Step 1:
+- Learn business analysis lifecycle and requirement types.
+
+Step 2:
+- Practice process mapping using as-is and to-be workflows.
+
+Step 3:
+- Write user stories with clear acceptance criteria for sample products.
+
+Step 4:
+- Build dashboard summaries and communicate recommendations to stakeholders.
+
+Portfolio Projects:
+- Loan approval workflow optimization case study
+- Requirement specification document for campus placement portal
+- Product backlog and user story map for student service app
+
+Interview Focus:
+- Requirement gathering scenarios
+- Conflict resolution across stakeholders
+- Prioritization using business impact and effort
+- Functional versus non-functional requirement clarity
+
+Networking Strategy:
+- Connect with business analysts and product teams on LinkedIn.
+- Request informational calls with alumni in consulting and operations roles.
+- Share one-page case summaries to improve referral conversations.

@@ -1,4 +1,11 @@
-"""FastAPI dependency helpers for settings, database sessions, and authenticated users."""
+﻿"""FastAPI dependency helpers for settings, database sessions, and authenticated users."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from typing import Annotated
 
@@ -56,3 +63,4 @@ def get_current_user(
 	if user is None:
 		raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
 	return user
+

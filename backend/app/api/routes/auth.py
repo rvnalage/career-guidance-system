@@ -1,4 +1,11 @@
-"""Authentication routes for user registration and JWT issuance."""
+﻿"""Authentication routes for user registration and JWT issuance."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from typing import Annotated
 
@@ -61,3 +68,4 @@ async def login_user(
 
 	token = create_access_token(subject=user.id)
 	return TokenResponse(access_token=token)
+

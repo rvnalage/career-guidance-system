@@ -1,4 +1,11 @@
-"""Agent for recommendation-oriented prompts before the scoring engine is invoked."""
+﻿"""Agent for recommendation-oriented prompts before the scoring engine is invoked."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from typing import Any
 
@@ -26,3 +33,4 @@ class RecommendationAgent(BaseAgent):
 	def suggested_next_step(self, message: str, context: dict[str, Any] | None = None) -> str:
 		"""Request the minimum structured inputs needed by the recommendation engine."""
 		return "Share 5 skills, 3 interests, and education level to generate top role recommendations"
+

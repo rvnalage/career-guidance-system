@@ -1,4 +1,11 @@
-"""Runtime visibility helpers for phase-2 modelized components."""
+﻿"""Runtime visibility helpers for phase-2 modelized components."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from __future__ import annotations
 
@@ -66,3 +73,4 @@ def get_model_runtime_status() -> dict[str, object]:
 			"enabled": settings.safety_filter_enabled,
 		},
 	}
+

@@ -38,12 +38,14 @@ backend/tests/
 ├── test_ml.py               # Recommendation engine (scoring logic, CF blending, sort order)
 ├── test_rag.py              # RAG status, ingest, search pipeline
 ├── test_xai_explanations.py # XAI explainer (SHAP/LIME/fallback) over 5-feature set
-├── test_recommendations.py  # Recommendation generation, feedback, bandit reranking
-├── test_llm_integration.py  # LLM config endpoints, safety filter behavior
+├── test_cf_bandit_service.py# CF + bandit service behaviors
 ├── test_profile_intake.py   # Upload parsing and profile-intake endpoint behavior
 ├── test_profile_service.py  # Profile merge and summarize (no I/O)
+├── test_user_model_service.py # User model utilities
 ├── test_modeling_status.py  # MLOps endpoint reports CF/Bandit/Safety/Drift/Fine-tuning status
-├── test_drift_detection.py  # Drift detector (KS test, baseline generation, CI exit codes)
+├── test_psychometric_model.py # Psychometric model utilities
+├── test_planner_service.py  # Planner orchestration and tool fusion
+├── test_safety_filter.py    # Safety filter layer behaviors
 └── test_nlp.py              # (placeholder — NLP edge cases can be added here)
 ```
 
@@ -184,9 +186,34 @@ Service layer unit tests — no HTTP, no database.
 
 **Coverage gaps to add**:
 - Metadata filter search (`source_type`, `topic`)
-- Default ingest from `one_note_extract/` at startup
+- Default ingest path resolution (`rag/knowledge/` then `one_note_extract/`)
 - Noisy chunk filtering (chunks < 50 chars discarded)
 - Duplicate chunk deduplication
+- Role and specialization specificity checks (for example: data science interview vs automation testing interview)
+- Manifest-driven evaluation tests using `/api/v1/rag/evaluate` expected terms and expected source fragments
+
+Recommended minimum RAG precision suite:
+
+- Query: "how i can prepare for data science interview"
+    - Expect topic filter = interview
+    - Expect source_recall_at_k to include data-science interview material
+- Query: "how to prepare for automation testing interview"
+    - Expect role/specialization terms: test pyramid, api testing, flaky tests, ci
+- Query: "learning roadmap for data scientist"
+    - Expect learning-topic chunks, not generic interview chunks
+
+Manifest gate note:
+
+- `tests/test_rag_manifest.py` validates manifest schema continuously.
+- With `RAG_MANIFEST_ENFORCE=1`, enabled manifest cases are enforced as quality gates.
+- Current manifest scope includes engineering and non-engineering role clusters.
+
+### 5.6.1 Psychometric Scoring Tests (`test_psychometric_model.py`)
+
+Psychometric tests now explicitly verify two behaviors:
+
+- `top_traits` stays a top-3 summary (UI-friendly output contract).
+- Domain recommendation fallback uses all provided input dimensions (not only top-3 traits).
 
 ### 5.7 XAI Explanation Tests (`test_xai_explanations.py`)
 
@@ -202,7 +229,7 @@ Direct unit tests of the `explain_recommendation` function — no HTTP, no datab
 - All 5 features present in contributions output regardless of active mode (SHAP/LIME/fallback)
 - CF score correctly attributed to collaborative filtering model
 
-### 5.8 Recommendation Feedback & Bandit Tests (`test_recommendations.py`)
+### 5.8 Recommendation Feedback & Bandit Tests (`test_cf_bandit_service.py`)
 
 Tests recommendation generation, feedback recording, and bandit-driven reranking.
 
@@ -219,7 +246,7 @@ Tests recommendation generation, feedback recording, and bandit-driven reranking
 - Feedback signal correctly merged (helpful + rating)
 - Policy persistence across requests
 
-### 5.9 LLM Configuration & Safety Filter Tests (`test_llm_integration.py`)
+### 5.9 LLM Configuration & Safety Filter Tests (`test_safety_filter.py` + integration tests)
 
 Tests LLM runtime configuration, fine-tuned model loading, and safety filter behavior.
 

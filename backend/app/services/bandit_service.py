@@ -1,7 +1,7 @@
-"""Epsilon-greedy contextual bandit for recommendation arm exploration.
+﻿"""Epsilon-greedy contextual bandit for recommendation arm exploration.
 
-The bandit maintains per-role (arm) statistics — cumulative reward and pull
-count — persisted as a lightweight JSON file.  On each recommendation request
+The bandit maintains per-role (arm) statistics â€” cumulative reward and pull
+count â€” persisted as a lightweight JSON file.  On each recommendation request
 it can reorder the top-K candidates by blending the UCB-style arm mean with
 the existing content score, occasionally exploring lower-ranked arms.
 
@@ -13,6 +13,13 @@ Design choices
 - Thread-safe : threading.Lock guards state mutations
 - Cold-start  : new arms start with mean=0.5, count=0 (neutral prior)
 """
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from __future__ import annotations
 
@@ -159,3 +166,4 @@ def get_arm_stats() -> dict[str, dict]:
         role: {"count": s.get("count", 0), "mean_reward": round(_arm_mean(s), 4)}
         for role, s in state.items()
     }
+

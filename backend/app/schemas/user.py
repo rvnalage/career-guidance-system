@@ -1,4 +1,11 @@
-"""Pydantic request and response schemas for authentication and user profile APIs."""
+﻿"""Pydantic request and response schemas for authentication and user profile APIs."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from pydantic import BaseModel
 
@@ -31,3 +38,4 @@ class TokenResponse(BaseModel):
 	"""Bearer token response returned after successful authentication."""
 	access_token: str
 	token_type: str = "bearer"
+

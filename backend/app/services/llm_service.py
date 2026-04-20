@@ -1,8 +1,15 @@
-"""LLM prompt construction and runtime integration for optional response refinement.
+﻿"""LLM prompt construction and runtime integration for optional response refinement.
 
 This module treats the LLM as a grounded post-processor over agent and RAG output.
 If the provider is disabled or unavailable, the rest of the chat stack still works.
 """
+
+# Developer Onboarding Notes:
+# - Layer: LLM orchestration service
+# - Role in system: Converts grounded planner/RAG signals into refined responses, with strict fallback behavior.
+# - Main callers: chat route and planner/recommendation services for specialized generated artifacts.
+# - Reading tip: Start from `generate_llm_reply`, then inspect provider callers (`_call_*`) and quality/safety filters.
+
 
 from __future__ import annotations
 
@@ -185,7 +192,20 @@ def _allowed_groq_models() -> set[str]:
 
 
 def validate_llm_runtime_config_updates(updates: dict[str, object]) -> dict[str, object]:
-	"""Validate and normalize runtime config updates before applying provider-aware in-memory overrides."""
+	"""Validate and normalize runtime config updates before applying overrides.
+
+	Args:
+		updates: Partial runtime settings patch requested by API/admin caller.
+
+	Returns:
+		Sanitized update payload with bounded numeric values and validated provider/model names.
+
+	Significance:
+		Prevents invalid runtime mutations that can break live inference calls.
+
+	Used by:
+		LLM runtime config endpoints prior to `update_llm_runtime_config`.
+	"""
 	validated = dict(updates)
 	provider = str(validated.get("provider", _resolve_runtime_config().get("provider", "ollama"))).strip().lower()
 	if provider not in _SUPPORTED_PROVIDERS:
@@ -239,7 +259,11 @@ def _active_model_name(runtime: dict[str, object]) -> str:
 
 
 def update_llm_runtime_config(updates: dict[str, object]) -> dict[str, object]:
-	"""Apply in-memory runtime updates so provider/model can be changed without restart."""
+	"""Apply in-memory runtime overrides for live provider/model switching.
+
+	Significance:
+		Allows experimentation and operational failover without service restart.
+	"""
 	for key, value in updates.items():
 		_runtime_overrides[key] = value
 	return get_llm_runtime_status()
@@ -252,7 +276,15 @@ def reset_llm_runtime_config() -> dict[str, object]:
 
 
 def get_llm_runtime_status() -> dict[str, object]:
-	"""Expose runtime LLM settings for diagnostics and environment verification."""
+	"""Return effective runtime LLM settings for diagnostics.
+
+	Significance:
+		Primary observability payload to confirm provider, active model, token/timeout
+		limits, and whether overrides are currently active.
+
+	Used by:
+		LLM status route and runbook troubleshooting flows.
+	"""
 	runtime = _resolve_runtime_config()
 	provider = str(runtime.get("provider", "ollama")).strip().lower()
 	finetuned = str(runtime.get("finetuned_model", "")).strip()
@@ -292,11 +324,24 @@ def _build_prompt(
 	intent_confidence: float,
 	keyword_matches: list[str],
 	user_profile_summary: str,
+	skill_gaps: list[str] | None = None,
 ) -> str:
-	"""Build a compact grounded prompt that minimizes template-echo behavior on local models."""
+	"""Build grounded user prompt from planner and retrieval context.
+
+	Significance:
+		Central prompt-template contract for response quality. Keeps generation tied to
+		RAG and planner evidence while discouraging meta-echo boilerplate.
+	"""
 	rag_section = rag_context.strip() or "No retrieved context."
 	intent_guidance = INTENT_PROMPT_GUIDANCE.get(intent, "Keep response concise and actionable.")
 	matches_text = ", ".join(keyword_matches) if keyword_matches else "none"
+	skill_gap_section = ""
+	if skill_gaps:
+		gaps_text = ", ".join(skill_gaps[:4])
+		skill_gap_section = (
+			f"SKILL_GAPS: The user is missing these skills for their target role: {gaps_text}.\n"
+			"- For each missing skill, suggest one free or low-cost resource (course, tutorial, or documentation).\n"
+		)
 	# This is the user-content block for chat-style providers; system instructions are sent separately.
 	return (
 		"Task: Write the final assistant reply for the user's career question.\n"
@@ -312,6 +357,7 @@ def _build_prompt(
 		f"INTENT: {intent} (confidence {intent_confidence:.2f})\n"
 		f"KEYWORDS: {matches_text}\n"
 		f"PROFILE: {user_profile_summary}\n"
+		f"{skill_gap_section}"
 		f"CONTEXT:\n{rag_section}\n"
 		f"BASE_GUIDANCE: {base_reply}\n"
 		f"NEXT_STEP_HINT: {next_step}\n"
@@ -398,7 +444,11 @@ def _log_prompt_diagnostics(
 
 
 def _call_ollama(prompt: str, runtime: dict[str, object]) -> Optional[str]:
-	"""Call a local Ollama chat endpoint and return refined text."""
+	"""Call local Ollama chat endpoint and return model text.
+
+	Used by:
+		`generate_llm_reply` and specialist plan-generation helpers.
+	"""
 	url = f"{str(runtime.get('base_url', '')).rstrip('/')}/api/chat"
 	num_predict = max(24, min(600, int(runtime.get("ollama_num_predict", settings.llm_ollama_num_predict))))
 	payload = {
@@ -436,7 +486,11 @@ def _call_ollama(prompt: str, runtime: dict[str, object]) -> Optional[str]:
 
 
 def _call_openai_compatible(prompt: str, runtime: dict[str, object], *, fallback_mode: bool = False) -> Optional[str]:
-	"""Call OpenAI (or compatible) chat completions endpoint and return refined text."""
+	"""Call OpenAI-compatible chat completion endpoint and return model text.
+
+	Significance:
+		Used both as primary provider path and as fallback when local provider fails.
+	"""
 	api_key = str(runtime.get("openai_api_key", "")).strip()
 	if not api_key:
 		logger.warning("LLM provider=openai but OPENAI_API_KEY is missing")
@@ -480,7 +534,7 @@ def _call_openai_compatible(prompt: str, runtime: dict[str, object], *, fallback
 
 
 def _call_groq(prompt: str, runtime: dict[str, object]) -> Optional[str]:
-	"""Call Groq chat completions endpoint and return refined text."""
+	"""Call Groq chat completion endpoint and return model text."""
 	api_key = str(runtime.get("groq_api_key", "")).strip()
 	if not api_key:
 		logger.warning("LLM provider=groq but GROQ_API_KEY is missing")
@@ -535,8 +589,31 @@ def generate_llm_reply(
 	intent_confidence: float = 0.0,
 	keyword_matches: list[str] | None = None,
 	user_profile_summary: str = "No profile memory available.",
+	skill_gaps: list[str] | None = None,
 ) -> Optional[str]:
-	"""Return an LLM-refined reply when runtime conditions permit, else return None."""
+	"""Generate a refined assistant reply with strict resilience and safety gates.
+
+	Args:
+		message: Latest user question.
+		intent: Routed intent label from planner/agent layer.
+		base_reply: Deterministic grounded reply from local orchestration.
+		next_step: Follow-up hint from primary intent agent.
+		rag_context: Retrieved knowledge context (optional based on runtime policy).
+		intent_confidence: Router confidence score for prompt conditioning.
+		keyword_matches: Intent keyword hits for explainability/grounding.
+		user_profile_summary: Compact profile memory snapshot for personalization.
+		skill_gaps: Optional missing-skill hints for actionable outputs.
+
+	Returns:
+		Filtered refined reply text, or None when LLM should be skipped/fallback to base guidance.
+
+	Significance:
+		Primary LLM entrypoint for chat responses. Enforces provider fallback policy,
+		output quality checks, and safety filtering before returning text to users.
+
+	Used by:
+		Chat route response assembly pipeline.
+	"""
 	runtime = _resolve_runtime_config()
 	# These early returns make runtime behavior explicit: disabled or no RAG context means no LLM call.
 	if not bool(runtime.get("enabled", False)):
@@ -562,6 +639,7 @@ def generate_llm_reply(
 		intent_confidence,
 		keyword_matches or [],
 		user_profile_summary,
+		skill_gaps=skill_gaps,
 	)
 	provider = str(runtime.get("provider", "ollama")).lower().strip()
 	model_name = _active_model_name(runtime)
@@ -637,3 +715,326 @@ def generate_llm_reply(
 				logger.warning("Fallback to openai failed", exc_info=True)
 		logger.warning("LLM refinement request failed", exc_info=True)
 		return None
+
+async def generate_recommendation_reason_via_llm(
+	*,
+	user_role: str,
+	user_skills: list[str],
+	user_interests: list[str],
+	matched_skills: int,
+	total_required_skills: int,
+	interest_matches: int,
+	education_fit: float,
+	confidence_score: float,
+) -> Optional[str]:
+	"""Generate short personalized recommendation rationale text.
+
+	Used by:
+		Recommendation service during post-scoring reason enrichment.
+	"""
+	runtime = _resolve_runtime_config()
+	if not bool(runtime.get("enabled", False)):
+		return None
+	
+	skills_text = ", ".join(user_skills[:5]) if user_skills else "no skills provided"
+	interests_text = ", ".join(user_interests[:4]) if user_interests else "no interests provided"
+	
+	prompt = (
+		"Task: Write a 1-2 sentence personalized explanation for why this career recommendation fits.\n"
+		"Use the user's actual data, NOT generic templates.\n\n"
+		f"TARGET ROLE: {user_role}\n"
+		f"USER_SKILLS: {skills_text}\n"
+		f"USER_INTERESTS: {interests_text}\n"
+		f"SKILL_MATCH: {matched_skills}/{total_required_skills} core skills\n"
+		f"INTEREST_MATCH: {interest_matches} related interests\n"
+		f"EDUCATION_FIT: {education_fit:.0%}\n"
+		f"CONFIDENCE: {confidence_score:.0%}\n\n"
+		"Explanation:"
+	)
+	
+	try:
+		llm_text: Optional[str] = None
+		provider = str(runtime.get("provider", "ollama")).lower().strip()
+		
+		if provider == "ollama":
+			llm_text = _call_ollama(prompt, runtime)
+		elif provider == "openai" or provider == "groq":
+			llm_text = _call_openai_compatible(prompt, runtime)
+		
+		if llm_text:
+			return _trim_incomplete_tail(llm_text.strip())
+	except Exception:
+		logger.exception("Failed to generate recommendation reason via LLM")
+	
+	return None
+
+
+async def generate_interview_plan_via_llm(
+	*,
+	target_role: str,
+	timeline_days: int,
+	skill_gaps: list[str],
+	company_name: str | None = None,
+) -> Optional[str]:
+	"""Generate interview sprint plan from role, timeline, and gap signals.
+
+	Used by:
+		Planner interview tool path.
+	"""
+	runtime = _resolve_runtime_config()
+	if not bool(runtime.get("enabled", False)):
+		return None
+	
+	gaps_text = ", ".join(skill_gaps[:4]) if skill_gaps else "general interview readiness"
+	company_hint = f" Target company: {company_name}." if company_name else ""
+	
+	prompt = (
+		f"You are an interview prep coach. Generate a {timeline_days}-day interview sprint plan for a {target_role} role.{company_hint}\n"
+		f"KEY SKILL GAPS TO ADDRESS: {gaps_text}\n\n"
+		"Output a day-by-day plan with specific focus areas and activities. Be concise (3-4 sentences per day).\n"
+		"Format as: 'Day 1: [topic]. [specific activity]. Day 2: ...'"
+	)
+	
+	try:
+		llm_text: Optional[str] = None
+		provider = str(runtime.get("provider", "ollama")).lower().strip()
+		
+		if provider == "ollama":
+			llm_text = _call_ollama(prompt, runtime)
+		elif provider == "openai" or provider == "groq":
+			llm_text = _call_openai_compatible(prompt, runtime)
+		
+		if llm_text:
+			return _trim_incomplete_tail(llm_text.strip())
+	except Exception:
+		logger.exception("Failed to generate interview plan via LLM")
+	
+	return None
+
+
+async def generate_interview_focus_areas_via_llm(
+	*,
+	target_role: str,
+	skill_gaps: list[str],
+	timeline_days: int,
+	company_name: str | None = None,
+) -> Optional[str]:
+	"""Generate role-specific interview focus areas with concise rationale and drills."""
+	runtime = _resolve_runtime_config()
+	if not bool(runtime.get("enabled", False)):
+		return None
+
+	gaps_text = ", ".join(skill_gaps[:4]) if skill_gaps else "core interview fundamentals"
+	company_hint = f" Target company: {company_name}." if company_name else ""
+
+	prompt = (
+		f"You are an interview coach. Create top focus areas for a {target_role} interview prep sprint over {timeline_days} days.{company_hint}\n"
+		f"KNOWN GAPS: {gaps_text}\n\n"
+		"Return exactly 4 focus areas. For each area, include: why it matters + one practical drill. "
+		"Use compact bullets."
+	)
+
+	try:
+		llm_text: Optional[str] = None
+		provider = str(runtime.get("provider", "ollama")).lower().strip()
+
+		if provider == "ollama":
+			llm_text = _call_ollama(prompt, runtime)
+		elif provider == "openai" or provider == "groq":
+			llm_text = _call_openai_compatible(prompt, runtime)
+
+		if llm_text:
+			return _trim_incomplete_tail(llm_text.strip())
+	except Exception:
+		logger.exception("Failed to generate interview focus areas via LLM")
+
+	return None
+
+
+async def generate_learning_plan_via_llm(
+	*,
+	target_role: str,
+	timeline_weeks: int,
+	skill_gaps: list[str],
+	learning_style: str | None = None,
+) -> Optional[str]:
+	"""Generate role-aligned learning plan for configured timeline.
+
+	Used by:
+		Planner learning tool path.
+	"""
+	runtime = _resolve_runtime_config()
+	if not bool(runtime.get("enabled", False)):
+		return None
+	
+	gaps_text = ", ".join(skill_gaps[:5]) if skill_gaps else "role fundamentals"
+	style_hint = f" Preferred learning style: {learning_style}." if learning_style else ""
+	
+	prompt = (
+		f"You are a career development coach. Generate a {timeline_weeks}-week learning path for becoming a {target_role}.{style_hint}\n"
+		f"PRIMARY SKILL GAPS: {gaps_text}\n\n"
+		"Output a week-by-week plan with concrete skills, projects, and milestones. Be practical and actionable.\n"
+		"Use format: 'Week 1: [skill focus]. [activities]. Week 2: ...'"
+	)
+	
+	try:
+		llm_text: Optional[str] = None
+		provider = str(runtime.get("provider", "ollama")).lower().strip()
+		
+		if provider == "ollama":
+			llm_text = _call_ollama(prompt, runtime)
+		elif provider == "openai" or provider == "groq":
+			llm_text = _call_openai_compatible(prompt, runtime)
+		
+		if llm_text:
+			return _trim_incomplete_tail(llm_text.strip())
+	except Exception:
+		logger.exception("Failed to generate learning plan via LLM")
+	
+	return None
+
+
+async def generate_networking_strategy_via_llm(
+	*,
+	target_role: str,
+	target_companies: list[str],
+	weekly_availability_hours: int | None = None,
+	response_rate_percent: int | None = None,
+	seniority_level: str | None = None,
+) -> Optional[str]:
+	"""Generate networking strategy with cadence tuned to availability/response signals.
+
+	Used by:
+		Planner networking tool path.
+	"""
+	runtime = _resolve_runtime_config()
+	if not bool(runtime.get("enabled", False)):
+		return None
+	
+	companies_text = ", ".join(target_companies[:3]) if target_companies else "your target companies"
+	availability_hint = (
+		f" Weekly availability: {weekly_availability_hours} hours."
+		if weekly_availability_hours is not None
+		else ""
+	)
+	response_hint = (
+		f" Current outreach response rate: {response_rate_percent}%."
+		if response_rate_percent is not None
+		else ""
+	)
+	seniority_hint = f" Career level: {seniority_level}." if seniority_level else ""
+	
+	prompt = (
+		f"You are a networking strategist. Design a concrete 3-week networking plan for landing a {target_role} role at {companies_text}.{availability_hint}{response_hint}{seniority_hint}\n"
+		"Include: specific platforms (LinkedIn, alumni networks), outreach messaging, conversation starters, follow-up cadence.\n"
+		"Adapt message volume and follow-up cadence to availability and response-rate signals. "
+		"Be specific and actionable. Format: 'Week 1: [actions]. Week 2: [actions]. Week 3: [actions].'"
+	)
+	
+	try:
+		llm_text: Optional[str] = None
+		provider = str(runtime.get("provider", "ollama")).lower().strip()
+		
+		if provider == "ollama":
+			llm_text = _call_ollama(prompt, runtime)
+		elif provider == "openai" or provider == "groq":
+			llm_text = _call_openai_compatible(prompt, runtime)
+		
+		if llm_text:
+			return _trim_incomplete_tail(llm_text.strip())
+	except Exception:
+		logger.exception("Failed to generate networking strategy via LLM")
+	
+	return None
+
+
+async def generate_job_readiness_assessment_via_llm(
+	*,
+	target_role: str,
+	user_skills: list[str],
+	skill_gaps: list[str],
+	experience_months: int | None = None,
+) -> Optional[str]:
+	"""Generate job-readiness assessment with strengths, gaps, and short action plan.
+
+	Used by:
+		Planner job-readiness tool path.
+	"""
+	runtime = _resolve_runtime_config()
+	if not bool(runtime.get("enabled", False)):
+		return None
+	
+	skills_text = ", ".join(user_skills[:6]) if user_skills else "no skills"
+	gaps_text = ", ".join(skill_gaps[:4]) if skill_gaps else "none identified"
+	exp_hint = f" Experience: {experience_months} months." if experience_months else ""
+	
+	prompt = (
+		f"Assess job readiness for {target_role}.\n"
+		f"CURRENT_SKILLS: {skills_text}\n"
+		f"SKILL_GAPS: {gaps_text}{exp_hint}\n\n"
+		"Provide: 1) readiness level (early/medium/high), 2) top 3 strengths, 3) critical gaps, 4) 30-day action items.\n"
+		"Be honest but constructive. Format as clear sections."
+	)
+	
+	try:
+		llm_text: Optional[str] = None
+		provider = str(runtime.get("provider", "ollama")).lower().strip()
+		
+		if provider == "ollama":
+			llm_text = _call_ollama(prompt, runtime)
+		elif provider == "openai" or provider == "groq":
+			llm_text = _call_openai_compatible(prompt, runtime)
+		
+		if llm_text:
+			return _trim_incomplete_tail(llm_text.strip())
+	except Exception:
+		logger.exception("Failed to generate job readiness assessment via LLM")
+	
+	return None
+
+
+async def generate_career_assessment_framework_via_llm(
+	*,
+	target_roles: list[str],
+	user_skills: list[str],
+	user_interests: list[str],
+	timeline_weeks: int,
+) -> Optional[str]:
+	"""Generate career-assessment framework with role-fit rubric and checkpoints.
+
+	Used by:
+		Planner career-assessment tool path.
+	"""
+	runtime = _resolve_runtime_config()
+	if not bool(runtime.get("enabled", False)):
+		return None
+
+	roles_text = ", ".join(target_roles[:3]) if target_roles else "2-3 realistic target roles"
+	skills_text = ", ".join(user_skills[:6]) if user_skills else "current baseline skills"
+	interests_text = ", ".join(user_interests[:5]) if user_interests else "stated interests"
+
+	prompt = (
+		f"Create a personalized {timeline_weeks}-week career assessment framework.\n"
+		f"CANDIDATE_ROLES: {roles_text}\n"
+		f"CURRENT_SKILLS: {skills_text}\n"
+		f"INTERESTS: {interests_text}\n\n"
+		"Provide: 1) role-fit rubric with weighted criteria, 2) weekly validation activities, "
+		"3) decision checkpoint with go/no-go signals, 4) one backup-path strategy. "
+		"Keep it practical and concise."
+	)
+
+	try:
+		llm_text: Optional[str] = None
+		provider = str(runtime.get("provider", "ollama")).lower().strip()
+
+		if provider == "ollama":
+			llm_text = _call_ollama(prompt, runtime)
+		elif provider == "openai" or provider == "groq":
+			llm_text = _call_openai_compatible(prompt, runtime)
+
+		if llm_text:
+			return _trim_incomplete_tail(llm_text.strip())
+	except Exception:
+		logger.exception("Failed to generate career assessment framework via LLM")
+
+	return None

@@ -1,4 +1,11 @@
-"""Pydantic schemas for psychometric scoring requests and responses."""
+﻿"""Pydantic schemas for psychometric scoring requests and responses."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from pydantic import BaseModel
 
@@ -14,3 +21,4 @@ class PsychometricResponse(BaseModel):
 	normalized_scores: dict[str, float]
 	top_traits: list[str]
 	recommended_domains: list[str]
+

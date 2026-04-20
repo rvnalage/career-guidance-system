@@ -1,4 +1,11 @@
-"""FastAPI application factory and top-level ASGI app instance."""
+﻿"""FastAPI application factory and top-level ASGI app instance."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from contextlib import asynccontextmanager
 
@@ -8,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes import api_router
 from app.config import settings
 from app.database.postgres_db import init_db
+from app.services.rag_service import ingest_directory
 from app.utils.logger import get_logger
 
 
@@ -24,6 +32,18 @@ def create_app() -> FastAPI:
 		except Exception:
 			# Keep startup alive if local DB is not available yet.
 			logger.exception("Database initialization failed during startup")
+		if settings.rag_enabled:
+			try:
+				ingest_result = ingest_directory(None)
+				logger.info(
+					"RAG auto-ingest complete: files=%s chunks=%s skipped_files=%s",
+					len(ingest_result.get("ingested_files", [])),
+					ingest_result.get("ingested_chunks", 0),
+					len(ingest_result.get("skipped_files", [])),
+				)
+			except Exception:
+				# Do not block API startup if the knowledge directory is missing or ingest fails.
+				logger.exception("RAG auto-ingest failed during startup")
 		yield
 
 	app = FastAPI(
@@ -60,3 +80,4 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+

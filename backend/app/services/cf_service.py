@@ -1,10 +1,17 @@
-"""Collaborative-filtering runtime inference service.
+﻿"""Collaborative-filtering runtime inference service.
 
 Loads the artefacts produced by train_cf_recommender.py and returns per-role
 CF scores for a requesting user.  If the model is disabled, missing, or the
 user is unknown (cold-start), the service returns an empty dict so callers
 can safely treat CF as an additive optional signal.
 """
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from __future__ import annotations
 
@@ -47,7 +54,7 @@ def _load_cf_artefact() -> Optional[dict]:
 
         model_path = _resolve(settings.cf_model_artifact_path) / "cf_model.pkl"
         if not model_path.exists():
-            logger.warning("CF model artefact not found at %s — scoring skipped.", model_path)
+            logger.warning("CF model artefact not found at %s â€” scoring skipped.", model_path)
             return None
 
         try:
@@ -110,3 +117,4 @@ def score_cf_roles(user_id: str, roles: list[str]) -> dict[str, float]:
         result[role_index[col_idx]] = round(float(norm_score), 6)
 
     return result
+

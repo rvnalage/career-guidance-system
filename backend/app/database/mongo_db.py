@@ -1,8 +1,15 @@
-"""MongoDB client and collection access helpers used across async services.
+﻿"""MongoDB client and collection access helpers used across async services.
 
 The module caches a single Motor client per process and exposes small collection
 accessors so callers do not duplicate database-selection logic.
 """
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorCollection
 
@@ -59,3 +66,4 @@ def get_outcome_collection() -> AsyncIOMotorCollection:
 	client = get_mongo_client()
 	database = client[settings.mongodb_database]
 	return database[settings.mongodb_outcome_collection]
+

@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request:
+
+jobs:
+  rag-manifest-quality:
+    name: RAG Manifest Quality Gate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      RAG_MANIFEST_ENFORCE: "1"
+      LLM_ENABLED: "false"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Validate manifest schema
+        run: pytest tests/test_rag_manifest.py::test_rag_eval_manifest_has_valid_shape -q
+
+      - name: Enforce manifest quality gates
+        run: pytest tests/test_rag_manifest.py::test_rag_eval_manifest_enabled_cases_meet_quality_gates -q
+
+      - name: Generate RAG eval report
+        run: python scripts/generate_rag_eval_report.py --report ../docs/rag-eval-report-ci.md --history ../logs/rag_eval_history_ci.jsonl

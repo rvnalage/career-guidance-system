@@ -1,4 +1,11 @@
-"""Retriever that combines vector search, lexical overlap, and metadata-aware reranking."""
+﻿"""Retriever that combines vector search, lexical overlap, and metadata-aware reranking."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from __future__ import annotations
 
@@ -83,3 +90,4 @@ def _passes_metadata_filters(chunk: KnowledgeChunk, metadata_filters: dict[str, 
 		if actual != expected_value.strip().lower():
 			return False
 	return True
+

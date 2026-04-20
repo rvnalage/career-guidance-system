@@ -1,4 +1,11 @@
-"""Psychometric API routes for scoring and storing trait-based domain recommendations."""
+﻿"""Psychometric API routes for scoring and storing trait-based domain recommendations."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from typing import Annotated
 
@@ -65,3 +72,4 @@ async def psychometric_profile_me(
 		top_traits=document.get("top_traits", []),
 		recommended_domains=document.get("recommended_domains", []),
 	)
+

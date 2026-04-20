@@ -1,4 +1,11 @@
-"""Agent responsible for broad career exploration and role-fit clarification."""
+﻿"""Agent responsible for broad career exploration and role-fit clarification."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from typing import Any
 
@@ -33,3 +40,4 @@ class CareerAssessmentAgent(BaseAgent):
 		if role:
 			return f"Complete a role-fit scorecard for {role} (skills, interest, market demand)"
 		return "Complete a quick self-assessment: list your top 3 strengths, 3 interests, and 2 target roles"
+

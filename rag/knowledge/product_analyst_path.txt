@@ -1,5 +1,7 @@
 Product Analyst Career Path
 
+Networking Keywords: linkedin, alumni, referral, outreach
+
 Core Skills:
 - SQL and dashboards
 - Product metrics design
@@ -30,3 +32,9 @@ Interview Focus:
 - Causality vs correlation
 - Experiment pitfalls
 - Business recommendation quality
+
+Networking Strategy:
+- Build a focused LinkedIn presence around product metrics, experimentation, and SQL case studies.
+- Reach out to alumni working as product analysts and request short informational calls.
+- Ask for referral opportunities after sharing a concise portfolio and impact summary.
+- Plan weekly outreach goals and track response quality.

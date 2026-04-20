@@ -1,8 +1,15 @@
-"""Lightweight verifier/critic pass for assembled chat responses.
+﻿"""Lightweight verifier/critic pass for assembled chat responses.
 
 The critic is intentionally rule-based so it remains predictable and cheap while
 adding a real verification stage to the chat orchestration pipeline.
 """
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from __future__ import annotations
 

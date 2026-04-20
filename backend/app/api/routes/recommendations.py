@@ -1,4 +1,11 @@
-"""Recommendation API routes for generation, explanation, feedback, and history."""
+﻿"""Recommendation API routes for generation, explanation, feedback, and history."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from typing import Annotated
 
@@ -62,7 +69,7 @@ async def generate_recommendations(
 		education_level=payload.education_level,
 	)
 	profile = await get_personalization_profile(current_user.id)
-	recommendations = generate_career_recommendations(payload, personalization_profile=profile)
+	recommendations = await generate_career_recommendations(payload, personalization_profile=profile)
 	await save_recommendation_snapshot(current_user.id, recommendations)
 	return RecommendationResponse(recommendations=recommendations)
 
@@ -134,3 +141,4 @@ async def clear_recommendation_history_me(
 		"deleted_count": deleted_count,
 		"message": "Recommendation history cleared",
 	}
+

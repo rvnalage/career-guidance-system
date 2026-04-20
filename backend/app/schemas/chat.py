@@ -1,3 +1,9 @@
+﻿# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 from typing import Any
 from typing import Literal
 
@@ -59,3 +65,20 @@ class ChatOutcomeResponse(BaseModel):
 	intent: str
 	success_score: int
 	message: str = "Outcome recorded"
+
+
+class NetworkingMetricsRequest(BaseModel):
+	user_id: str | None = None
+	weekly_availability_hours: int | None = Field(default=None, ge=1, le=80)
+	response_rate_percent: int | None = Field(default=None, ge=0, le=100)
+
+
+class NetworkingMetricsResponse(BaseModel):
+	user_id: str
+	avg_weekly_availability_hours: float | None = None
+	avg_response_rate_percent: float | None = None
+	last_weekly_availability_hours: int | None = None
+	last_response_rate_percent: int | None = None
+	samples: int = 0
+	message: str = "Networking metrics recorded"
+

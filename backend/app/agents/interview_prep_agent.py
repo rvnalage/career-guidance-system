@@ -1,4 +1,11 @@
-"""Agent for interview preparation guidance and mock-planning responses."""
+﻿"""Agent for interview preparation guidance and mock-planning responses."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from typing import Any
 
@@ -29,3 +36,4 @@ class InterviewPrepAgent(BaseAgent):
 		if role:
 			return f"Share your latest resume to build a 10-question mock set for {role}"
 		return "Choose your target role and interview date to generate a focused prep calendar"
+

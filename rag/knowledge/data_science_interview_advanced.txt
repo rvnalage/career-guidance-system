@@ -1,0 +1,60 @@
+Title: Advanced Data Scientist Interview Preparation
+Intent: interview_prep
+Role: data scientist
+Specialization: experimentation, causal inference, offline metrics, model diagnostics
+Seniority: 1-3 years
+Tags: ab testing, causal inference, feature leakage, model calibration, business impact
+
+Advanced Data Scientist Interview Blueprint
+
+Round Types:
+1. Case-study problem framing
+2. Experiment design and statistical reasoning
+3. Model diagnostics and metric trade-offs
+4. Product impact storytelling
+5. Behavioral execution and stakeholder alignment
+
+Core Topics:
+- A/B testing design: hypothesis, randomization unit, sample size, guardrail metrics
+- Causal inference methods: propensity scores, difference-in-differences, and confounding control
+- Offline metrics versus online metrics and when they diverge
+- Feature leakage identification and prevention in production pipelines
+- Precision, recall, calibration, and threshold optimization for business outcomes
+
+Question Bank:
+- Design an experiment to measure retention impact of a recommendation feature.
+- How would you choose between precision and recall for fraud or risk detection?
+- Explain how offline metrics can mislead product decisions.
+- How do you detect and handle causal confounders in observational data?
+- Describe a case where model calibration changed launch decisions.
+
+Evaluation Rubric:
+- Statistical correctness under uncertainty
+- Causal reasoning quality and assumptions clarity
+- Metric selection aligned to business objective
+- Ability to explain trade-offs to non-technical stakeholders
+- Decision quality with incomplete data
+
+30-60-90 Day Preparation Plan:
+30 days:
+- Practice case-study decompositions and hypothesis trees.
+- Revisit statistics and experiment power calculations.
+
+60 days:
+- Solve end-to-end A/B testing exercises with metric interpretation.
+- Build causal inference mini-projects with transparent assumptions.
+
+90 days:
+- Create a mock decision memo comparing model and experiment outcomes.
+- Conduct peer mock interviews focused on experimentation and communication.
+
+Common Mistakes:
+- Optimizing a single metric without guardrails
+- Ignoring heterogeneous treatment effects
+- Reporting correlation as causation
+- Skipping uncertainty intervals in recommendations
+
+Portfolio Signals:
+- Experiment analysis notebooks with clear statistical reasoning
+- Causal inference case study with reproducible pipeline
+- Decision memos that connect model metrics to business impact

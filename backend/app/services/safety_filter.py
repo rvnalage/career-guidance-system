@@ -1,11 +1,11 @@
-"""LLM reply safety filter.
+﻿"""LLM reply safety filter.
 
 Screens generated text for content that falls outside the career guidance
 domain or could cause harm before it is returned to the user.
 
 Design
 ------
-- Pure-Python, no ML dependencies — safe to import unconditionally.
+- Pure-Python, no ML dependencies â€” safe to import unconditionally.
 - Three check layers, applied in order:
     1. Harmful / sensitive topic patterns (block and replace with fallback).
     2. Off-topic patterns (warn and replace with fallback).
@@ -15,6 +15,13 @@ Design
 
 All patterns are lower-cased regex strings compiled once at import.
 """
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from __future__ import annotations
 
@@ -58,7 +65,7 @@ _BLOCK_FALLBACK = (
     "and job search strategies. Please ask me something related to your career goals."
 )
 
-# Off-topic soft fallback — appended as a redirect, not a full replacement.
+# Off-topic soft fallback â€” appended as a redirect, not a full replacement.
 _OFFTOPIC_REDIRECT = (
     " (I noticed this may be outside my career guidance scope. "
     "Feel free to ask me about career paths, skills, or interview preparation.)"
@@ -141,13 +148,13 @@ def apply_safety_filter(text: str) -> SafetyResult:
     if not text or not text.strip():
         return SafetyResult(text=text, blocked=False, reason=None)
 
-    # Layer 1: harmful content — full replacement.
+    # Layer 1: harmful content â€” full replacement.
     harmful_label = _check_harmful(text)
     if harmful_label:
         logger.warning("Safety filter blocked reply (reason=%s).", harmful_label)
         return SafetyResult(text=_BLOCK_FALLBACK, blocked=True, reason=harmful_label)
 
-    # Layer 2: off-topic — soft redirect appended.
+    # Layer 2: off-topic â€” soft redirect appended.
     offtopic_label = _check_offtopic(text)
     if offtopic_label:
         logger.info("Safety filter flagged off-topic reply (reason=%s).", offtopic_label)
@@ -158,3 +165,4 @@ def apply_safety_filter(text: str) -> SafetyResult:
     cleaned = _check_repetition(text)
 
     return SafetyResult(text=cleaned, blocked=False, reason=None)
+

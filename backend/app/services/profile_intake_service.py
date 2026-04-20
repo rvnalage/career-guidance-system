@@ -1,4 +1,11 @@
-"""Helpers for extracting profile signals from uploaded user files."""
+﻿"""Helpers for extracting profile signals from uploaded user files."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from __future__ import annotations
 

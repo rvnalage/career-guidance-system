@@ -1,8 +1,15 @@
-"""Runtime loader and inference helpers for the phase-2 intent classifier.
+﻿"""Runtime loader and inference helpers for the phase-2 intent classifier.
 
 This module is optional by design. If artifacts are missing or confidence is low,
 callers should fall back to the deterministic keyword router.
 """
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from __future__ import annotations
 
@@ -89,3 +96,4 @@ def detect_intent_with_model(message: str) -> IntentPrediction | None:
 	if not settings.intent_model_enabled:
 		return None
 	return _RUNTIME.predict(message)
+

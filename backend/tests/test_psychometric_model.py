@@ -43,3 +43,40 @@ def test_score_psychometric_fallback_without_model(monkeypatch):
 	)
 	_, _, domains = psychometric_service.score_psychometric(payload)
 	assert len(domains) > 0
+
+
+def test_score_psychometric_returns_top_three_traits(monkeypatch):
+	monkeypatch.setattr(psychometric_service.settings, "psychometric_model_enabled", False)
+	payload = PsychometricRequest(
+		dimensions={
+			"investigative": 5,
+			"realistic": 4,
+			"artistic": 3,
+			"social": 2,
+			"enterprising": 1,
+			"conventional": 4,
+		}
+	)
+	_, top_traits, _ = psychometric_service.score_psychometric(payload)
+
+	# API contract keeps top-traits summary concise for UI display.
+	assert len(top_traits) == 3
+	assert top_traits[0] == "investigative"
+
+
+def test_score_psychometric_fallback_uses_non_top_three_traits(monkeypatch):
+	monkeypatch.setattr(psychometric_service.settings, "psychometric_model_enabled", False)
+	payload = PsychometricRequest(
+		dimensions={
+			"investigative": 5,
+			"realistic": 5,
+			"artistic": 5,
+			"social": 5,
+			"enterprising": 5,
+			"conventional": 5,
+		}
+	)
+	_, _, domains = psychometric_service.score_psychometric(payload)
+
+	# Domain candidates from lower-ranked traits should still be eligible in fallback mapping.
+	assert "Product Management" in domains

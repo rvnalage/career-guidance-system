@@ -29,6 +29,7 @@ Agentic AI-driven career guidance platform with secure user accounts, personaliz
 
 Core architecture and design:
 - [RAG + LLM Integration](docs/rag-llm-integration.md) — How the retrieval-augmented generation system grounds LLM responses in your career knowledge base
+- [RAG Ingestion Operations](docs/rag-ingestion-operations.md) — How to run ingestion, verify chunk quality, and troubleshoot indexing issues
 - [API Specification](docs/api-spec.md)
 - [System Design](docs/design.md)
 - [Testing Strategy](docs/testing-strategy.md)
@@ -164,6 +165,11 @@ Base prefix: `/api/v1`
   - `POST /rag/ingest`
   - `POST /rag/ingest/default`
   - `GET /rag/search?query=...`
+  - `POST /rag/evaluate`
+  - `GET /rag/telemetry`
+  - `GET /rag/telemetry/trends`
+  - `GET /rag/telemetry/trends/series`
+  - `GET /rag/telemetry/trends/combined`
 - Dashboard
   - `GET /dashboard/summary/me`
   - `GET /dashboard/report/me`

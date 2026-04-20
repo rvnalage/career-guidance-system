@@ -1,4 +1,11 @@
-"""Relational ORM models used by the authentication and profile flows."""
+﻿"""Relational ORM models used by the authentication and profile flows."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column
@@ -16,3 +23,4 @@ class User(Base):
 	hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
 	interests: Mapped[str] = mapped_column(String(500), default="", nullable=False)
 	target_roles: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+

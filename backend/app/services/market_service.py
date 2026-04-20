@@ -1,4 +1,11 @@
-"""Job-market retrieval helpers with graceful fallback when the external API fails."""
+﻿"""Job-market retrieval helpers with graceful fallback when the external API fails."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 import asyncio
 import time
@@ -38,7 +45,7 @@ def _fallback_jobs(query: str) -> list[JobMarketItem]:
 
 
 def fetch_job_market_data(query: str, limit: int = 10) -> tuple[str, list[JobMarketItem]]:
-	"""Sync wrapper — kept for any non-async callers; delegates to async implementation."""
+	"""Sync wrapper â€” kept for any non-async callers; delegates to async implementation."""
 	return asyncio.get_event_loop().run_until_complete(fetch_job_market_data_async(query, limit))
 
 
@@ -78,3 +85,4 @@ async def fetch_job_market_data_async(query: str, limit: int = 10) -> tuple[str,
 
 	result = ("fallback", _fallback_jobs(query))
 	return result
+

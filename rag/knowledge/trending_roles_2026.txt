@@ -1,0 +1,83 @@
+Title: Trending Roles 2026 Coverage Matrix
+Intent: career_assessment
+Role: multi-role
+Specialization: emerging and high-growth careers
+Seniority: fresher to 3 years
+Tags: trending roles, job market, skills matrix, interview preparation
+
+Trending Role: AI Product Manager
+Core Skills:
+- Product strategy for AI-enabled features
+- Stakeholder alignment across engineering and business teams
+- Experimentation roadmap and metric definition
+- Responsible AI and risk prioritization
+Interview Focus:
+- Product discovery for AI use-cases
+- Trade-offs between accuracy, latency, and cost
+- Experiment design and launch decisions
+
+Trending Role: Cybersecurity Analyst
+Core Skills:
+- Threat modeling and risk assessment
+- Vulnerability management and incident response
+- SIEM monitoring and log triage
+- Security controls and compliance basics
+Interview Focus:
+- Incident response workflow
+- Prioritizing critical vulnerabilities
+- Security monitoring playbooks
+
+Trending Role: UX Researcher
+Core Skills:
+- User interviews and moderated usability studies
+- Research synthesis and insight communication
+- Behavioral analysis and journey mapping
+- Experiment-backed design recommendations
+Interview Focus:
+- Research plan design
+- Interview bias mitigation
+- Converting insights into product decisions
+
+Trending Role: Growth Marketing Manager
+Core Skills:
+- Acquisition funnel design and optimization
+- Cohort analysis and retention strategy
+- Channel performance measurement and ROI
+- Experimentation with landing pages and campaigns
+Interview Focus:
+- CAC versus LTV trade-offs
+- Growth experiment prioritization
+- Funnel bottleneck diagnosis
+
+Trending Role: Sustainability Analyst
+Core Skills:
+- ESG reporting and carbon accounting fundamentals
+- Operational data analysis for sustainability goals
+- Compliance metrics and impact communication
+- Cross-functional coordination for sustainability initiatives
+Interview Focus:
+- Building sustainability KPI frameworks
+- Data quality challenges in ESG reporting
+- Business-impact storytelling
+
+Trending Role: Cloud Architect
+Core Skills:
+- Cloud solution design across compute, storage, and networking
+- Reliability, scalability, and cost optimization
+- Security architecture and governance
+- Migration planning and platform standardization
+Interview Focus:
+- Architecture decision records
+- Cost-performance trade-offs
+- Security and compliance controls
+
+Trending Role: Product Operations Specialist
+Core Skills:
+- Product process optimization and execution tracking
+- KPI frameworks and reporting rhythm
+- Cross-functional program coordination
+- Feedback loop design between users and product teams
+Interview Focus:
+- Process improvement examples
+- Stakeholder alignment strategy
+- Metrics and delivery consistency

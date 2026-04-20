@@ -1,4 +1,11 @@
-"""Pydantic schemas for recommendation requests, outputs, feedback, and explanations."""
+﻿"""Pydantic schemas for recommendation requests, outputs, feedback, and explanations."""
+
+# Developer Onboarding Notes:
+# - Layer: core module
+# - Role in system: Supports application behavior and shared logic.
+# - Main callers: Imported by neighboring modules.
+# - Reading tip: Start from exported functions/classes, then follow dependencies upward to route handlers.
+
 
 from pydantic import BaseModel
 
@@ -16,6 +23,8 @@ class CareerRecommendation(BaseModel):
 	role: str
 	confidence: float
 	reason: str
+	skill_gaps: list[str] = []
+	upgrade_suggestions: list[str] = []
 
 
 class RecommendationResponse(BaseModel):
@@ -67,3 +76,4 @@ class RecommendationExplanation(BaseModel):
 class RecommendationExplainResponse(BaseModel):
 	"""Envelope for explanation results returned by the recommendation API."""
 	explanations: list[RecommendationExplanation]
+

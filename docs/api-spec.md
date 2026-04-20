@@ -163,11 +163,12 @@ Send a chat message as an anonymous user (no JWT required).
   "interests": ["machine learning"],
   "education_level": "Masters",
   "psychometric_dimensions": {
-    "openness": 4,
-    "conscientiousness": 5,
-    "extraversion": 3,
-    "agreeableness": 4,
-    "neuroticism": 2
+    "investigative": 4,
+    "realistic": 3,
+    "artistic": 2,
+    "social": 4,
+    "enterprising": 5,
+    "conventional": 3
   }
 }
 ```
@@ -181,7 +182,7 @@ Send a chat message as an anonymous user (no JWT required).
 | `skills` | string[] | — | Optional shortcut list merged into context |
 | `interests` | string[] | — | Optional shortcut list merged into context |
 | `education_level` | string | — | Optional education signal |
-| `psychometric_dimensions` | object | — | Optional Big Five-style numeric map |
+| `psychometric_dimensions` | object | — | Optional psychometric numeric map (UI defaults to six RIASEC-style dimensions) |
 
 **Context object fields** (all optional)
 
@@ -468,11 +469,12 @@ Score psychometric dimensions anonymously.
 ```json
 {
   "dimensions": {
-    "openness": 4,
-    "conscientiousness": 5,
-    "extraversion": 3,
-    "agreeableness": 4,
-    "neuroticism": 2
+    "investigative": 4,
+    "realistic": 3,
+    "artistic": 2,
+    "social": 4,
+    "enterprising": 5,
+    "conventional": 3
   }
 }
 ```
@@ -483,16 +485,23 @@ Each dimension value should be an integer in the range **1–5**.
 ```json
 {
   "normalized_scores": {
-    "openness": 0.82,
-    "conscientiousness": 0.95,
-    "extraversion": 0.60,
-    "agreeableness": 0.78,
-    "neuroticism": 0.35
+    "investigative": 75.0,
+    "realistic": 50.0,
+    "artistic": 25.0,
+    "social": 75.0,
+    "enterprising": 100.0,
+    "conventional": 50.0
   },
-  "top_traits": ["conscientiousness", "openness"],
-  "recommended_domains": ["research", "data science", "machine learning"]
+  "top_traits": ["enterprising", "investigative", "social"],
+  "recommended_domains": ["Product Management", "Data Science", "Counseling", "AI/ML", "Teaching"]
 }
 ```
+
+Notes:
+
+- `top_traits` is a concise top-3 summary for UI display.
+- `recommended_domains` is computed using all provided psychometric dimensions (not only top-3).
+- `normalized_scores` are percentage-style values in range 0-100.
 
 ---
 
@@ -544,11 +553,12 @@ This endpoint uses `multipart/form-data`.
     "target_role": "data scientist",
     "education_level": "Masters",
     "psychometric_dimensions": {
-      "openness": 4,
-      "conscientiousness": 5,
-      "extraversion": 3,
-      "agreeableness": 4,
-      "neuroticism": 2
+      "investigative": 4,
+      "realistic": 3,
+      "artistic": 2,
+      "social": 4,
+      "enterprising": 5,
+      "conventional": 3
     }
   },
   "persisted_to_user_profile": true,
@@ -679,7 +689,9 @@ Ingest knowledge documents from a custom directory path.
 { "directory_path": "/path/to/my/docs" }
 ```
 
-`directory_path` may be `null` to use the default `one_note_extract/` directory.
+`directory_path` may be `null` to use the default ingest resolution order:
+1) `rag/knowledge/`
+2) `one_note_extract/`
 
 **Response `200`**
 ```json
@@ -697,7 +709,7 @@ Ingest knowledge documents from a custom directory path.
 
 ### `POST /rag/ingest/default`
 
-Ingest from the default `one_note_extract/` directory. No request body needed.
+Ingest from default path resolution (`rag/knowledge/` then `one_note_extract/`). No request body needed.
 
 **Response `200`** — same as `/rag/ingest`.
 
@@ -715,6 +727,8 @@ Semantic search over the knowledge base with optional metadata filters.
 | `source_type` | string | — | `career_path` |
 | `topic` | string | — | `ml_engineer` |
 | `min_education` | string | — | `BTech` |
+| `intent` | string | — | `interview_prep` |
+| `target_role` | string | — | `ml engineer` |
 
 **Response `200`**
 ```json
@@ -731,6 +745,97 @@ Semantic search over the knowledge base with optional metadata filters.
   ]
 }
 ```
+
+---
+
+### `POST /rag/evaluate`
+
+Evaluate retrieval quality for a query against expected terms/sources.
+
+**Request body**
+```json
+{
+  "query": "ml engineer interview prep",
+  "top_k": 4,
+  "expected_terms": ["interview", "practice"],
+  "expected_source_contains": ["interview"],
+  "metadata_filters": {"topic": "interview"},
+  "intent": "interview_prep",
+  "target_role": "ml engineer",
+  "skill_gaps": ["system design"]
+}
+```
+
+**Response `200`**
+```json
+{
+  "query": "ml engineer interview prep",
+  "retrieved_count": 4,
+  "term_coverage": 1.0,
+  "source_recall_at_k": 1.0,
+  "matched_terms": ["interview", "practice"],
+  "matched_sources": ["interview_preparation"],
+  "results": [
+    {
+      "title": "Interview Preparation",
+      "source": "rag/knowledge/interview_preparation.txt",
+      "source_type": "document",
+      "snippet": "Practice role-specific interview loops...",
+      "metadata": {"topic": "interview", "role": "ml engineer"}
+    }
+  ]
+}
+```
+
+---
+
+### `GET /rag/telemetry`
+
+Return per-user aggregate retrieval telemetry from assistant message metadata.
+
+**Query parameters**
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `user_id` | string | — | `frontend-session-user` |
+| `limit` | int | — | `100` |
+
+---
+
+### `GET /rag/telemetry/trends`
+
+Return windowed aggregate buckets (for example last 10/50/100 turns).
+
+**Query parameters**
+
+| Parameter | Type | Required | Default |
+|-----------|------|----------|---------|
+| `user_id` | string | — | `frontend-session-user` |
+| `windows` | csv string | — | `10,50,100` |
+| `limit` | int | — | auto (max window) |
+
+---
+
+### `GET /rag/telemetry/trends/series`
+
+Return frontend-ready chart series payload (`labels`, aligned metric arrays).
+
+---
+
+### `GET /rag/telemetry/trends/combined`
+
+Return both bucket windows and series arrays in one response.
+
+---
+
+### Authenticated telemetry variants
+
+These endpoints are also available in authenticated `.../me` form:
+
+- `GET /rag/telemetry/me`
+- `GET /rag/telemetry/trends/me`
+- `GET /rag/telemetry/trends/series/me`
+- `GET /rag/telemetry/trends/combined/me`
 
 ---
 
